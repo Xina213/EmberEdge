@@ -53,11 +53,13 @@ def fetch_current_weather():
 
     if records:
         df = pd.DataFrame(records)
-        os.makedirs("../data", exist_ok=True)
-        df.to_csv("../data/weather_latest.csv", index=False)
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        DATA_DIR = os.path.join(BASE_DIR, "..", "data")
+        os.makedirs(DATA_DIR, exist_ok=True)
+        df.to_csv(os.path.join(DATA_DIR, "weather_latest.csv"), index=False)
         print(f"✅ {len(records)} cidades guardadas em weather_latest.csv")
         return df
-    return None
+    return None  # ← dentro da função, alinhado com o if
 
 
 def fetch_forecast():
