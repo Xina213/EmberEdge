@@ -16,11 +16,12 @@ fires_list = []
 weather_list = []
 
 
-app = Flask(__name__, static_folder='../frontend', static_url_path='')
+app = Flask(__name__, static_folder=os.path.join(BASE_DIR, '..', 'frontend'), static_url_path='')
 CORS(app)
 
 
-DATA_DIR    = "../data"
+BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR    = os.path.join(BASE_DIR, "..", "data")
 FIRES_FILE  = os.path.join(DATA_DIR, "fires", "fires_latest.csv")
 WEATHER_FILE= os.path.join(DATA_DIR, "weather_latest.csv")
 
