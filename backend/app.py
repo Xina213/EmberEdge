@@ -68,23 +68,25 @@ def get_fires():
     return jsonify({"status":"success","count":len(fires),"timestamp":datetime.now().isoformat(),"data":fires})
 
 
-@app.route('/api/weather')
-def get_weather():
-    rows = load_csv(WEATHER_FILE)
-    d = {}
-    for r in rows:
-        d[r.get('city','')] = {
-            'temperature':  float(r.get('temperature',15)),
-            'wind_speed':   float(r.get('wind_speed',10)),
-            'humidity':     float(r.get('humidity',70)),
-            'precipitation':float(r.get('precipitation',0)),
-            'latitude':     float(r.get('latitude',40)),
-            'longitude':    float(r.get('longitude',-8)),
-            'weather_desc': r.get('weather_desc',''),
-            'source':       r.get('source','OpenWeatherMap'),
-            'timestamp':    r.get('timestamp','')
-        }
-    return jsonify({"status":"success","count":len(d),"timestamp":datetime.now().isoformat(),"data":d})
+@app.route('/api/risk/<city>')
+def get_risk_city(city):
+    global weather_cache
+    try:
+        wd = next((weather_cache[c] for c in weather_cache if c.lower() == city.lower()), None)
+        if not wd:
+            return jsonify({'error': f'City {city} not found', 'available_cities': list(weather_cache.keys())}), 404
+        result = ai_integration.predict(
+            city_name=city,
+            temperature=float(wd.get('temperature', 15)),
+            humidity=float(wd.get('humidity', 70)),
+            wind_speed=float(wd.get('wind_speed', 10)),
+            precipitation=float(wd.get('precipitation', 0))
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 
 
 @app.route('/api/forecast')
@@ -211,7 +213,7 @@ def get_stats():
             "avg_humidity":     avg_humidity,
             "cities_at_risk":   cities_at_risk,
             "cities_monitored": len(weather),
-            "model_accuracy":   87.3,
+            "model_accuracy":   87.2,
             "last_update":      datetime.now().isoformat()
         }
     })
@@ -259,19 +261,19 @@ def internal_error(e):
 # ===== AUTO-UPDATE =====
 
 def update_firms_data():
+    global weather_cache
     while True:
         try:
             print("\n🔄 Atualizando NASA FIRMS...")
-            import subprocess
-            r = subprocess.run(['python','nasa_firms_integration.py'],
-                capture_output=True, text=True, cwd=os.path.dirname(__file__))
-            print("✅ NASA FIRMS ok" if r.returncode==0 else f"⚠️ {r.stderr}")
-            fetch_current_weather()
+            result = fetch_current_weather()
+            if result is not None:
+                weather_cache = result.set_index('city').to_dict('index')
+                print(f"✅ {len(weather_cache)} cidades em memória")
             fetch_forecast()
-            print("✅ Meteorologia OWM atualizada")
         except Exception as e:
             print(f"❌ Erro update: {e}")
         time.sleep(30 * 60)
+
 
 
 # ===== MAIN =====
@@ -285,4 +287,5 @@ if __name__ == '__main__':
     print(f"🌐 http://localhost:5000")
     print("="*60 + "\n")
     threading.Thread(target=update_firms_data, daemon=True).start()
-    app.run(debug=True, port=5000, host='0.0.0.0', use_reloader=False)
+    port = int(os.environ.get('PORT', 5000))
+app.run(debug=False, port=port, host='0.0.0.0', use_reloader=False)
