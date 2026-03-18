@@ -108,25 +108,6 @@ def get_forecast():
     return jsonify({"status":"success","cities":len(by_city),"timestamp":datetime.now().isoformat(),"data":by_city})
 
 
-@app.route('/api/risk/<city>')
-def get_risk_city(city):
-    global weather_list
-    try:
-        wd = next((w for w in weather_list if w['city'].lower()==city.lower()), None)
-        if not wd:
-            return jsonify({'error':f'City {city} not found','available_cities':[w['city'] for w in weather_list]}), 404
-        result = ai_integration.predict(
-            city_name=city,
-            temperature=wd['temperature'],
-            humidity=wd['humidity'],
-            wind_speed=wd['wind_speed'],
-            precipitation=wd.get('precipitation',0)
-        )
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'error':str(e)}), 500
-
-
 @app.route('/api/risk/all')
 def get_all_risks():
     rows = load_csv(WEATHER_FILE)
