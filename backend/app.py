@@ -124,9 +124,9 @@ def get_forecast():
 
 @app.route('/api/risk/<city>')
 def get_risk_city(city):
-    global weather_list
     try:
-        wd = next((w for w in weather_list if w['city'].lower()==city.lower()), None)
+        current_weather = load_csv(WEATHER_FILE)
+        wd = next((w for w in current_weather if w['city'].lower()==city.lower()), None)
         if not wd:
             return jsonify({'error':f'City {city} not found','available_cities':[w['city'] for w in weather_list]}), 404
         result = ai_integration.predict(
