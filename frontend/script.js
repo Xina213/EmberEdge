@@ -88,7 +88,8 @@ async function addDistrictLayer(weatherData) {
     console.log('🗺️ Adicionando camada de distritos...');
     
     try {
-        const response = await fetch('https://raw.githubusercontent.com/deldersveld/topojson/master/countries/portugal/portugal-districts.json');
+        const response = await 
+        fetch('https://raw.githubusercontent.com/codeforgermany/click_that_hood/master/public/data/portugal.geojson');
         const geoData = await response.json();
         
         const cities = weatherData.data;
@@ -107,13 +108,15 @@ async function addDistrictLayer(weatherData) {
                 let cityWeather = null;
                 
                 for (let city of Object.keys(cities)) {
-                    if (city.toLowerCase().includes(districtName.toLowerCase()) ||
-                        districtName.toLowerCase().includes(city.toLowerCase())) {
-                        cityData = city;
-                        cityWeather = cities[city];
-                        break;
-                    }
-                }
+    const mappedName = CITY_NAME_MAP[districtName] || districtName;
+    if (mappedName.toLowerCase() === city.toLowerCase() ||
+        city.toLowerCase().includes(districtName.toLowerCase()) ||
+        districtName.toLowerCase().includes(city.toLowerCase())) {
+        cityData = city;
+        cityWeather = cities[city];
+        break;
+    }
+}
                 
                 if (cityData && cityWeather) {
                     layer.on('mouseover', async function(e) {
