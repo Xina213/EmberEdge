@@ -1,6 +1,6 @@
 {
-  "trained_date": "2026-02-07T15:13:44.800992",
-  "accuracy": 0.892960462873674,
+  "trained_date": "2026-03-18T19:15:20.424627",
+  "accuracy": 0.8958534233365477,
   "model_type": "RandomForestClassifier",
   "n_estimators": 200,
   "features": [
@@ -13,13 +13,13 @@
     "lon"
   ],
   "feature_importance": {
-    "lat": 0.2462224375837093,
-    "temperature": 0.19631122144743354,
-    "month": 0.18404869989310196,
-    "humidity": 0.1377147606578056,
-    "precipitation": 0.10253060203348716,
-    "lon": 0.09710933842613995,
-    "wind_speed": 0.036062939958322514
+    "lat": 0.24654220654686543,
+    "temperature": 0.19844065361588012,
+    "month": 0.18514999657494402,
+    "humidity": 0.1258924546273003,
+    "precipitation": 0.10952046427231736,
+    "lon": 0.09691879312923632,
+    "wind_speed": 0.037535431233456554
   },
   "data_source": "ICNF Historical Data 2000-2023",
   "risk_levels": {
