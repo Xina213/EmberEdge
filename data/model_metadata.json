@@ -1,0 +1,30 @@
+{
+  "trained_date": "2026-02-07T15:13:44.800992",
+  "accuracy": 0.892960462873674,
+  "model_type": "RandomForestClassifier",
+  "n_estimators": 200,
+  "features": [
+    "temperature",
+    "humidity",
+    "wind_speed",
+    "precipitation",
+    "month",
+    "lat",
+    "lon"
+  ],
+  "feature_importance": {
+    "lat": 0.2462224375837093,
+    "temperature": 0.19631122144743354,
+    "month": 0.18404869989310196,
+    "humidity": 0.1377147606578056,
+    "precipitation": 0.10253060203348716,
+    "lon": 0.09710933842613995,
+    "wind_speed": 0.036062939958322514
+  },
+  "data_source": "ICNF Historical Data 2000-2023",
+  "risk_levels": {
+    "0": "Baixo",
+    "1": "Médio",
+    "2": "Alto"
+  }
+}
