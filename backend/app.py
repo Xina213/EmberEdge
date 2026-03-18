@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """EmberEdge - Backend API Flask"""
 
+
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 import os, csv, random, threading, time, json
@@ -10,19 +11,24 @@ from integrate_ai import AIHistoricalIntegration
 from copernicus_integration import CopernicusIntegration
 from fetch_weather import fetch_current_weather, fetch_forecast
 
+
 fires_list = []
 weather_list = []
 
+
 app = Flask(__name__, static_folder='../frontend', static_url_path='')
 CORS(app)
+
 
 DATA_DIR    = "../data"
 FIRES_FILE  = os.path.join(DATA_DIR, "fires", "fires_latest.csv")
 WEATHER_FILE= os.path.join(DATA_DIR, "weather_latest.csv")
 
+
 predictor      = RiskPredictor()
 ai_integration = AIHistoricalIntegration()
 copernicus     = CopernicusIntegration()
+
 
 
 def load_csv(filepath):
@@ -38,6 +44,7 @@ def load_csv(filepath):
     return data
 
 
+
 def load_data():
     global fires_list, weather_list
     fires_list   = load_csv(FIRES_FILE)
@@ -45,27 +52,34 @@ def load_data():
     print(f"📊 Dados carregados: {len(fires_list)} fogos, {len(weather_list)} cidades")
 
 
+
 # ===== FRONTEND =====
+
 
 @app.route('/')
 def index():
     return send_from_directory('../frontend', 'index.html')
 
+
 @app.route('/<path:path>')
 def serve_static(path):
     return send_from_directory('../frontend', path)
+
 
 @app.route('/favicon.ico')
 def favicon():
     return '', 204
 
 
+
 # ===== API =====
+
 
 @app.route('/api/fires')
 def get_fires():
     fires = load_csv(FIRES_FILE)
     return jsonify({"status":"success","count":len(fires),"timestamp":datetime.now().isoformat(),"data":fires})
+
 
 
 @app.route('/api/weather')
@@ -87,6 +101,7 @@ def get_weather():
     return jsonify({"status":"success","count":len(d),"timestamp":datetime.now().isoformat(),"data":d})
 
 
+
 @app.route('/api/forecast')
 def get_forecast():
     rows = load_csv(os.path.join(DATA_DIR,"forecast_all.csv"))
@@ -106,6 +121,7 @@ def get_forecast():
     return jsonify({"status":"success","cities":len(by_city),"timestamp":datetime.now().isoformat(),"data":by_city})
 
 
+
 @app.route('/api/risk/<city>')
 def get_risk_city(city):
     global weather_list
@@ -123,6 +139,7 @@ def get_risk_city(city):
         return jsonify(result)
     except Exception as e:
         return jsonify({'error':str(e)}), 500
+
 
 
 @app.route('/api/risk/all')
@@ -145,21 +162,25 @@ def get_all_risks():
     return jsonify({"status":"success","count":len(risks),"data":risks})
 
 
+
 @app.route('/api/history')
 def get_history():
     real_fires  = len(load_csv(FIRES_FILE))
     history     = {}
     base_date   = datetime.now() - timedelta(days=6)
 
+
     for i in range(7):
         date     = base_date + timedelta(days=i)
         date_str = date.strftime('%Y-%m-%d')
 
-        # Seed fixa por data — valores estáveis entre refreshes
+
         random.seed(int(date.strftime('%Y%m%d')))
+
 
         base_risk   = 0.25 + (0.15 * i / 6)
         fires_today = real_fires if i == 6 else 0
+
 
         history[date_str] = {
             'risk_avg':        round(base_risk + random.uniform(-0.05, 0.1), 2),
@@ -169,8 +190,10 @@ def get_history():
             'avg_humidity':    random.randint(50, 75)
         }
 
-    random.seed()  # reset seed
+
+    random.seed()
     return jsonify(history)
+
 
 
 @app.route('/api/stats')
@@ -178,14 +201,17 @@ def get_stats():
     fires   = load_csv(FIRES_FILE)
     weather = load_csv(WEATHER_FILE)
 
+
     total_area   = sum(float(f.get('area_hectares',0)) for f in fires)
     temps        = [float(w.get('temperature',15)) for w in weather]
     winds        = [float(w.get('wind_speed',10))  for w in weather]
     humidities   = [float(w.get('humidity',70))    for w in weather]
 
+
     avg_temp     = round(sum(temps)/len(temps),1)           if temps      else 15.0
     avg_wind     = round(sum(winds)/len(winds),1)           if winds      else 10.0
     avg_humidity = round(sum(humidities)/len(humidities),1) if humidities else 70.0
+
 
     month = datetime.now().month
     if month in [6,7,8,9]:
@@ -195,12 +221,14 @@ def get_stats():
     else:
         t_thresh, h_thresh, w_thresh = 18, 55, 30
 
+
     cities_at_risk = sum(
         1 for w in weather
         if float(w.get('temperature',0)) > t_thresh
         or float(w.get('humidity',100))  < h_thresh
         or float(w.get('wind_speed',0))  > w_thresh
     )
+
 
     return jsonify({
         "status":"success",
@@ -218,6 +246,7 @@ def get_stats():
     })
 
 
+
 @app.route('/api/health')
 def health():
     return jsonify({
@@ -229,6 +258,7 @@ def health():
         "timestamp":      datetime.now().isoformat(),
         "version":        "1.0.0"
     })
+
 
 
 @app.route('/api/copernicus/status')
@@ -246,18 +276,23 @@ def copernicus_status():
         return jsonify({"status":"error","message":str(e),"service":"Copernicus Data Space"}), 500
 
 
+
 # ===== ERRO HANDLERS =====
+
 
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({"status":"error","message":"Endpoint não encontrado","code":404}), 404
+
 
 @app.errorhandler(500)
 def internal_error(e):
     return jsonify({"status":"error","message":"Erro interno servidor","code":500}), 500
 
 
+
 # ===== AUTO-UPDATE =====
+
 
 def update_firms_data():
     while True:
@@ -275,15 +310,19 @@ def update_firms_data():
         time.sleep(30 * 60)
 
 
+
 # ===== MAIN =====
 
+
+load_data()
+threading.Thread(target=update_firms_data, daemon=True).start()
+
 if __name__ == '__main__':
-    load_data()
+    port = int(os.environ.get('PORT', 5000))
     print("\n" + "="*60)
     print("🔥 EMBEREDGE DASHBOARD BACKEND API")
     print("="*60)
     print(f"📊 Fogos: {len(load_csv(FIRES_FILE))} | 🌡️ Cidades: {len(load_csv(WEATHER_FILE))} | 🤖 AI: {'✅' if predictor.model else '❌'}")
-    print(f"🌐 http://localhost:5000")
+    print(f"🌐 Porta: {port}")
     print("="*60 + "\n")
-    threading.Thread(target=update_firms_data, daemon=True).start()
-    app.run(debug=True, port=5000, host='0.0.0.0', use_reloader=False)
+    app.run(debug=False, port=port, host='0.0.0.0', use_reloader=False)
