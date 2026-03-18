@@ -4,7 +4,7 @@
    ============================================================ */
 
 // ===== CONFIGURAÇÃO =====
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = window.location.origin + '/api';
 let map = null;
 let markers = [];
 let historyChart = null;
