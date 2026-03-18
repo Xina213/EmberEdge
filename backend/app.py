@@ -171,6 +171,7 @@ def get_history():
     return jsonify(history)
 
 
+
 @app.route('/api/stats')
 def get_stats():
     fires   = load_csv(FIRES_FILE)
@@ -284,4 +285,4 @@ if __name__ == '__main__':
     print(f"🌐 http://localhost:5000")
     print("="*60 + "\n")
     threading.Thread(target=update_firms_data, daemon=True).start()
-    app.run(debug=True, port=5000, host='127.0.0.1', use_reloader=False)
+    app.run(debug=True, port=5000, host='0.0.0.0', use_reloader=False)
