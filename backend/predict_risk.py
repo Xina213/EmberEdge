@@ -8,7 +8,9 @@ import joblib
 import numpy as np
 from datetime import datetime
 
-MODEL_PATH = '../data/risk_model.pkl'
+import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, '..', 'data', 'risk_model.pkl')
 
 # Mapeamento de cidades para coordenadas
 CITY_COORDS = {
