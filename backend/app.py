@@ -67,36 +67,24 @@ def get_fires():
     fires = load_csv(FIRES_FILE)
     return jsonify({"status":"success","count":len(fires),"timestamp":datetime.now().isoformat(),"data":fires})
 
+
 @app.route('/api/weather')
 def get_weather():
-    global weather_cache
-    try:
-        if not weather_cache:
-            return jsonify({'error': 'No weather data available'}), 503
-        return jsonify(list(weather_cache.values()))
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/risk/<city>')
-def get_risk_city(city):
-    global weather_cache
-    try:
-        wd = next((weather_cache[c] for c in weather_cache if c.lower() == city.lower()), None)
-        if not wd:
-            return jsonify({'error': f'City {city} not found', 'available_cities': list(weather_cache.keys())}), 404
-        result = ai_integration.predict(
-            city_name=city,
-            temperature=float(wd.get('temperature', 15)),
-            humidity=float(wd.get('humidity', 70)),
-            wind_speed=float(wd.get('wind_speed', 10)),
-            precipitation=float(wd.get('precipitation', 0))
-        )
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
+    rows = load_csv(WEATHER_FILE)
+    d = {}
+    for r in rows:
+        d[r.get('city','')] = {
+            'temperature':  float(r.get('temperature',15)),
+            'wind_speed':   float(r.get('wind_speed',10)),
+            'humidity':     float(r.get('humidity',70)),
+            'precipitation':float(r.get('precipitation',0)),
+            'latitude':     float(r.get('latitude',40)),
+            'longitude':    float(r.get('longitude',-8)),
+            'weather_desc': r.get('weather_desc',''),
+            'source':       r.get('source','OpenWeatherMap'),
+            'timestamp':    r.get('timestamp','')
+        }
+    return jsonify({"status":"success","count":len(d),"timestamp":datetime.now().isoformat(),"data":d})
 
 
 @app.route('/api/forecast')
@@ -116,6 +104,25 @@ def get_forecast():
             "weather_desc": r.get("weather_desc","")
         })
     return jsonify({"status":"success","cities":len(by_city),"timestamp":datetime.now().isoformat(),"data":by_city})
+
+
+@app.route('/api/risk/<city>')
+def get_risk_city(city):
+    global weather_list
+    try:
+        wd = next((w for w in weather_list if w['city'].lower()==city.lower()), None)
+        if not wd:
+            return jsonify({'error':f'City {city} not found','available_cities':[w['city'] for w in weather_list]}), 404
+        result = ai_integration.predict(
+            city_name=city,
+            temperature=wd['temperature'],
+            humidity=wd['humidity'],
+            wind_speed=wd['wind_speed'],
+            precipitation=wd.get('precipitation',0)
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error':str(e)}), 500
 
 
 @app.route('/api/risk/all')
@@ -140,29 +147,30 @@ def get_all_risks():
 
 @app.route('/api/history')
 def get_history():
-    real_fires   = len(load_csv(FIRES_FILE))
-    history      = {}
-    base_date    = datetime.now() - timedelta(days=6)
-
-    risk_offsets = [0.02, -0.03, 0.05, -0.01, 0.07, 0.03, 0.08]
-    temp_values  = [15.2, 14.8, 16.1, 15.5, 17.3, 18.0, 18.5]
-    hum_values   = [72,   68,   74,   70,   65,   62,   60  ]
+    real_fires  = len(load_csv(FIRES_FILE))
+    history     = {}
+    base_date   = datetime.now() - timedelta(days=6)
 
     for i in range(7):
         date     = base_date + timedelta(days=i)
         date_str = date.strftime('%Y-%m-%d')
-        base_risk = 0.25 + (0.15 * i / 6)
+
+        # Seed fixa por data — valores estáveis entre refreshes
+        random.seed(int(date.strftime('%Y%m%d')))
+
+        base_risk   = 0.25 + (0.15 * i / 6)
+        fires_today = real_fires if i == 6 else 0
 
         history[date_str] = {
-            'risk_avg':        round(base_risk + risk_offsets[i], 2),
-            'fires_count':     real_fires if i == 6 else 0,
-            'area_burned_ha':  real_fires * 120 if i == 6 else 0,
-            'avg_temperature': temp_values[i],
-            'avg_humidity':    hum_values[i]
+            'risk_avg':        round(base_risk + random.uniform(-0.05, 0.1), 2),
+            'fires_count':     fires_today,
+            'area_burned_ha':  fires_today * random.randint(50, 200),
+            'avg_temperature': round(random.uniform(14, 20), 1),
+            'avg_humidity':    random.randint(50, 75)
         }
 
+    random.seed()  # reset seed
     return jsonify(history)
-
 
 
 @app.route('/api/stats')
@@ -204,7 +212,7 @@ def get_stats():
             "avg_humidity":     avg_humidity,
             "cities_at_risk":   cities_at_risk,
             "cities_monitored": len(weather),
-            "model_accuracy":   87.2,
+            "model_accuracy":   87.3,
             "last_update":      datetime.now().isoformat()
         }
     })
@@ -252,19 +260,19 @@ def internal_error(e):
 # ===== AUTO-UPDATE =====
 
 def update_firms_data():
-    global weather_cache
     while True:
         try:
             print("\n🔄 Atualizando NASA FIRMS...")
-            result = fetch_current_weather()
-            if result is not None:
-                weather_cache = result.set_index('city').to_dict('index')
-                print(f"✅ {len(weather_cache)} cidades em memória")
+            import subprocess
+            r = subprocess.run(['python','nasa_firms_integration.py'],
+                capture_output=True, text=True, cwd=os.path.dirname(__file__))
+            print("✅ NASA FIRMS ok" if r.returncode==0 else f"⚠️ {r.stderr}")
+            fetch_current_weather()
             fetch_forecast()
+            print("✅ Meteorologia OWM atualizada")
         except Exception as e:
             print(f"❌ Erro update: {e}")
         time.sleep(30 * 60)
-
 
 
 # ===== MAIN =====
@@ -278,5 +286,4 @@ if __name__ == '__main__':
     print(f"🌐 http://localhost:5000")
     print("="*60 + "\n")
     threading.Thread(target=update_firms_data, daemon=True).start()
-    port = int(os.environ.get('PORT', 5000))
-app.run(debug=False, port=port, host='0.0.0.0', use_reloader=False)
+    app.run(debug=True, port=5000, host='0.0.0.0', use_reloader=False)

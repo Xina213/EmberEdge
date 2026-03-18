@@ -487,6 +487,12 @@ function getRiskColor(riskValue) {
 
 // ===== GRÁFICO HISTÓRICO =====
 function plotHistory(historyData) {
+    // No script.js, adiciona isto logo no início da plotHistory:
+console.log('plotHistory called with:', historyData);
+if (!document.getElementById('history-chart')) {
+    console.error('Canvas #history-chart not found!');
+    return;
+}
     const dates = Object.keys(historyData).sort();
     const riskData = dates.map(date => historyData[date].risk_avg * 100);
     const firesData = dates.map(date => historyData[date].fires_count);
