@@ -67,6 +67,16 @@ def get_fires():
     fires = load_csv(FIRES_FILE)
     return jsonify({"status":"success","count":len(fires),"timestamp":datetime.now().isoformat(),"data":fires})
 
+@app.route('/api/weather')
+def get_weather():
+    global weather_cache
+    try:
+        if not weather_cache:
+            return jsonify({'error': 'No weather data available'}), 503
+        return jsonify(list(weather_cache.values()))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/risk/<city>')
 def get_risk_city(city):
