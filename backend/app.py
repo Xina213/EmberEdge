@@ -16,14 +16,13 @@ fires_list = []
 weather_list = []
 
 
+BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR     = os.path.join(BASE_DIR, "..", "data")
+FIRES_FILE   = os.path.join(DATA_DIR, "fires", "fires_latest.csv")
+WEATHER_FILE = os.path.join(DATA_DIR, "weather_latest.csv")
+
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, '..', 'frontend'), static_url_path='')
 CORS(app)
-
-
-BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR    = os.path.join(BASE_DIR, "..", "data")
-FIRES_FILE  = os.path.join(DATA_DIR, "fires", "fires_latest.csv")
-WEATHER_FILE= os.path.join(DATA_DIR, "weather_latest.csv")
 
 
 predictor      = RiskPredictor()
