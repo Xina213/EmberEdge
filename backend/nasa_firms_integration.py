@@ -15,65 +15,83 @@ load_dotenv()
 NASA_FIRMS_KEY = os.getenv('NASA_FIRMS_KEY', 'your_key_here')
 FIRES_OUTPUT = '../data/fires/fires_latest.csv'
 
-# Bounding box Portugal + Espanha
-BBOX = '-10,36,-5,43'  # lon_min,lat_min,lon_max,lat_max
+# Bounding box Portugal Continental + Ilhas
+BBOX = '-10,36,-6,42'
 
 def fetch_firms_fires(days=1, source='VIIRS_SNPP_NRT'):
     """
     Buscar fogos NASA FIRMS
-    
+
     Args:
         days: últimos N dias (1-10)
         source: MODIS_NRT, VIIRS_SNPP_NRT, VIIRS_NOAA20_NRT
-    
+
     Returns:
-        list: fogos detectados
+        list | None: fogos detectados, ou None em caso de erro de API
     """
-    
+
     url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{NASA_FIRMS_KEY}/{source}/{BBOX}/{days}"
-    
+
     print(f"🛰️ Buscando NASA FIRMS ({source})...")
     print(f"   URL: {url}")
-    
+
     try:
         response = requests.get(url, timeout=60)
+
+        # NASA FIRMS devolve 200 mesmo com key inválida, mas com mensagem de erro no body
+        if "Invalid" in response.text or "Error" in response.text or "error" in response.text:
+            print(f"❌ NASA FIRMS recusou a key. Resposta: {response.text[:200]}")
+            return None  # None = erro de API (não confundir com lista vazia = sem fogos)
+
         response.raise_for_status()
-        
-        # Parse CSV response
+
         lines = response.text.strip().split('\n')
-        
+
         if len(lines) < 2:
-            print("⚠️ Sem fogos detectados")
-            return []
-        
-        # Header + data
+            print("✅ API respondeu: sem fogos detectados neste período")
+            return []  # Lista vazia = API ok, mas sem fogos
+
         header = lines[0].split(',')
         fires = []
-        
+
         for line in lines[1:]:
             values = line.split(',')
             fire_dict = dict(zip(header, values))
             fires.append(fire_dict)
-        
+
         print(f"✅ {len(fires)} hotspots FIRMS detectados")
         return fires
-        
+
     except requests.exceptions.RequestException as e:
-        print(f"❌ Erro NASA FIRMS: {e}")
-        return []
+        print(f"❌ Erro de rede NASA FIRMS: {e}")
+        return None  # None = erro de rede
 
 
 def save_fires_to_csv(fires):
     """Salvar fogos em CSV EmberEdge format"""
-    
-    if not fires:
-        # Criar CSV vazio se sem fogos
+
+    if fires is None:
+        # None = erro de API — NÃO sobrescrever CSV existente
+        print(f"⚠️ Erro de API — CSV existente mantido intacto: {FIRES_OUTPUT}")
+        return
+
+    if fires == []:
+        # Lista vazia = API ok, mas sem fogos confirmados
+        # Só sobrescreve se o ficheiro existente também estava vazio (evita apagar dados válidos)
+        import os
+        if os.path.exists(FIRES_OUTPUT):
+            with open(FIRES_OUTPUT, 'r') as f:
+                existing_lines = len(f.readlines())
+            if existing_lines > 1:
+                print(f"⚠️ API devolveu 0 fogos mas CSV tem dados. A manter CSV existente.")
+                print(f"   (Pode ser área/período sem detecções, não necessariamente sem fogos)")
+                return
         with open(FIRES_OUTPUT, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['fire_id', 'city', 'latitude', 'longitude', 
-                           'area_hectares', 'active_hours', 'confidence', 
+            writer.writerow(['fire_id', 'city', 'latitude', 'longitude',
+                           'area_hectares', 'active_hours', 'confidence',
                            'temperature', 'timestamp'])
-        print(f"💾 CSV vazio criado: {FIRES_OUTPUT}")
+        print(f"💾 CSV vazio criado (0 fogos confirmados): {FIRES_OUTPUT}")
         return
     
     with open(FIRES_OUTPUT, 'w', newline='', encoding='utf-8') as f:
@@ -125,7 +143,16 @@ def get_nearest_city(lat, lon):
         'Guarda': (40.54, -7.27),
         'Viseu': (40.66, -7.91),
         'Braga': (41.55, -8.43),
-        'Bragança': (41.81, -6.76)
+        'Bragança': (41.81, -6.76),
+        'Castelo Branco': (39.82, -7.49),
+        'Leiria': (39.75, -8.80),
+        'Santarém': (39.24, -8.69),
+        'Portalegre': (39.30, -7.43),
+        'Beja': (38.02, -7.86),
+        'Viana do Castelo': (41.69, -8.83),
+        'Vila Real': (41.30, -7.74),
+        'Aveiro': (40.64, -8.65),
+        'Setúbal': (38.52, -8.89)
     }
     
     min_dist = float('inf')

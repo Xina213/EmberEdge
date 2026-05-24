@@ -94,7 +94,9 @@ def fetch_forecast():
 
     if all_records:
         df = pd.DataFrame(all_records)
-        df.to_csv("../data/forecast_all.csv", index=False)
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        DATA_DIR = os.path.join(BASE_DIR, "..", "data")
+        df.to_csv(os.path.join(DATA_DIR, "forecast_all.csv"), index=False)
         print(f"✅ Previsões guardadas em forecast_all.csv")
         return df
     return None

@@ -299,9 +299,14 @@ def update_firms_data():
         try:
             print("\n🔄 Atualizando NASA FIRMS...")
             import subprocess
-            r = subprocess.run(['python','nasa_firms_integration.py'],
+            r = subprocess.run(['python', 'fetch_nasa_firms.py'],  # ← unificado com auto_update_data.py
                 capture_output=True, text=True, cwd=os.path.dirname(__file__))
-            print("✅ NASA FIRMS ok" if r.returncode==0 else f"⚠️ {r.stderr}")
+            if r.returncode == 0:
+                print("✅ NASA FIRMS ok")
+            else:
+                print(f"⚠️ NASA FIRMS stderr:\n{r.stderr}")
+            if r.stdout:
+                print(r.stdout)
             fetch_current_weather()
             fetch_forecast()
             print("✅ Meteorologia OWM atualizada")

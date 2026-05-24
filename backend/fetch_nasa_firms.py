@@ -16,10 +16,10 @@ load_dotenv()
 NASA_KEY = os.getenv('NASA_FIRMS_KEY', 'your_key_here')
 OUTPUT_FILE = '../data/fires/fires_latest.csv'
 
-# Bounding Box Portugal + Espanha
-BBOX = '-10,36,-5,43'
+# Bounding Box Portugal Continental + Ilhas
+BBOX = '-10,36,-6,42'
 
-# Cidades principais
+# Cidades principais Portugal
 CITIES = {
     'Lisboa': (38.72, -9.14),
     'Porto': (41.16, -8.63),
@@ -36,43 +36,49 @@ CITIES = {
     'Santarém': (39.24, -8.69),
     'Portalegre': (39.30, -7.43),
     'Beja': (38.02, -7.86),
-    'Madrid': (40.42, -3.70),
-    'Toledo': (39.86, -4.03),
-    'Cáceres': (39.48, -6.37),
-    'Badajoz': (38.88, -6.97)
+    'Viana do Castelo': (41.69, -8.83),
+    'Vila Real': (41.30, -7.74),
+    'Aveiro': (40.64, -8.65),
+    'Setúbal': (38.52, -8.89)
 }
 
 
 def fetch_firms(source='VIIRS_SNPP_NRT', days=1):
     """Buscar dados NASA FIRMS"""
-    
+
     url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{NASA_KEY}/{source}/{BBOX}/{days}"
-    
+
     print(f"[FIRMS] Fetching {source}...")
     print(f"   Days: {days} | BBox: Portugal+Espanha")
-    
+
     try:
         response = requests.get(url, timeout=60)
+
+        # NASA FIRMS devolve 200 mesmo com key inválida — verificar body
+        if "Invalid" in response.text or "Error" in response.text or "error" in response.text:
+            print(f"[ERROR] NASA FIRMS rejeitou key. Resposta: {response.text[:200]}")
+            return None  # None = erro, não lista vazia
+
         response.raise_for_status()
-        
+
         lines = response.text.strip().split('\n')
-        
+
         if len(lines) < 2:
-            print("[FIRMS] No fires detected")
-            return []
-        
+            print("[FIRMS] API ok — sem fogos no período")
+            return []  # Lista vazia = ok, sem fogos
+
         import csv
         from io import StringIO
-        
+
         reader = csv.DictReader(StringIO(response.text))
         fires = list(reader)
-        
+
         print(f"[OK] {len(fires)} hotspots detected")
         return fires
-        
+
     except requests.exceptions.RequestException as e:
         print(f"[ERROR] NASA FIRMS: {e}")
-        return []
+        return None  # None = erro de rede
 
 
 def get_nearest_city(lat, lon):
@@ -92,9 +98,14 @@ def get_nearest_city(lat, lon):
 
 def save_to_csv(fires):
     """Salvar fogos em formato EmberEdge"""
-    
+
     os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
-    
+
+    if fires is None:
+        # Erro de API — não sobrescrever CSV existente
+        print(f"[WARN] Erro de API — CSV existente mantido: {OUTPUT_FILE}")
+        return
+
     with open(OUTPUT_FILE, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow([

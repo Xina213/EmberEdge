@@ -24,20 +24,20 @@ CITY_COORDS = {
     'Covilhã': {'lat': 40.28, 'lon': -7.50},
     'Évora': {'lat': 38.57, 'lon': -7.91},
     'Faro': {'lat': 37.02, 'lon': -7.93},
+    'Figueira da Foz': {'lat': 40.14, 'lon': -8.86},
+    'Funchal': {'lat': 32.67, 'lon': -16.92},
     'Guarda': {'lat': 40.54, 'lon': -7.27},
     'Leiria': {'lat': 39.75, 'lon': -8.81},
     'Lisboa': {'lat': 38.72, 'lon': -9.14},
     'Portalegre': {'lat': 39.30, 'lon': -7.43},
+    'Ponta Delgada': {'lat': 37.74, 'lon': -25.68},
     'Porto': {'lat': 41.16, 'lon': -8.62},
     'Santarém': {'lat': 39.24, 'lon': -8.69},
     'Setúbal': {'lat': 38.52, 'lon': -8.89},
+    'Tomar': {'lat': 39.60, 'lon': -8.41},
     'Viana do Castelo': {'lat': 41.69, 'lon': -8.83},
     'Vila Real': {'lat': 41.30, 'lon': -7.74},
     'Viseu': {'lat': 40.66, 'lon': -7.91},
-    # Espanha
-    'Madrid': {'lat': 40.42, 'lon': -3.70},
-    'Badajoz': {'lat': 38.88, 'lon': -6.97},
-    'Cáceres': {'lat': 39.48, 'lon': -6.37}
 }
 
 class RiskPredictor:

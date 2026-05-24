@@ -15,7 +15,7 @@ FIRES_DIR = os.path.join(DATA_DIR, "fires")
 WEATHER_FILE = os.path.join(DATA_DIR, "weather_latest.csv")
 FIRES_FILE = os.path.join(FIRES_DIR, "fires_latest.csv")
 
-# ===== CIDADES PORTUGAL + ESPANHA =====
+# ===== CIDADES PORTUGAL =====
 CITIES = {
     'Lisboa': (38.7223, -9.1393),
     'Porto': (41.1579, -8.6291),
@@ -37,16 +37,10 @@ CITIES = {
     'Viana do Castelo': (41.6938, -8.8344),
     'Vila Real': (41.3006, -7.7445),
     'Bragança': (41.8065, -6.7570),
-    'Madrid': (40.4168, -3.7038),
-    'Toledo': (39.8628, -4.0273),
-    'Cuenca': (40.0703, -2.1374),
-    'Ávila': (40.6564, -4.6813),
-    'Segovia': (40.9429, -4.1088),
-    'Salamanca': (40.9701, -5.6635),
-    'Cáceres': (39.4753, -6.3724),
-    'Badajoz': (38.8794, -6.9706),
-    'Ciudad Real': (38.9848, -3.9276),
-    'Valladolid': (41.6523, -4.7245)
+    'Setúbal': (38.5244, -8.8882),
+    'Coimbra': (40.2033, -8.4103),
+    'Funchal': (32.6669, -16.9241),
+    'Ponta Delgada': (37.7412, -25.6756)
 }
 
 # ===== FUNÇÕES =====
