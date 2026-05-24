@@ -4,12 +4,39 @@
 
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
-import os, csv, random, threading, time, json
+import os, csv, threading, time, json
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 from predict_risk import RiskPredictor
 from integrate_ai import AIHistoricalIntegration
 from copernicus_integration import CopernicusIntegration
+from copernicus_frp import enrich_fires_with_real_area
 from fetch_weather import fetch_current_weather, fetch_forecast
+
+load_dotenv()
+
+# ===== VALIDAÇÃO DE KEYS NO ARRANQUE =====
+def validate_env_keys():
+    required = {
+        'NASA_FIRMS_KEY':          'https://firms.modaps.eosdis.nasa.gov/api/',
+        'OWM_API_KEY':             'https://openweathermap.org/api',
+        'COPERNICUS_CLIENT_ID':    'https://dataspace.copernicus.eu/',
+        'COPERNICUS_CLIENT_SECRET':'https://dataspace.copernicus.eu/'
+    }
+    missing = []
+    for key, url in required.items():
+        val = os.getenv(key, '')
+        if not val or val in ('your_key_here', 'your_client_id', 'your_client_secret'):
+            missing.append((key, url))
+
+    if missing:
+        print("\n⚠️  KEYS EM FALTA NO .env / RENDER ENVIRONMENT:")
+        for key, url in missing:
+            print(f"   ❌ {key} → obtém em: {url}")
+        print("   Algumas funcionalidades estarão indisponíveis.\n")
+    else:
+        print("✅ Todas as API keys configuradas\n")
+    return len(missing) == 0
 
 
 fires_list = []
@@ -20,6 +47,16 @@ BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR     = os.path.join(BASE_DIR, "..", "data")
 FIRES_FILE   = os.path.join(DATA_DIR, "fires", "fires_latest.csv")
 WEATHER_FILE = os.path.join(DATA_DIR, "weather_latest.csv")
+
+def get_model_accuracy():
+    """Lê accuracy real do model_metadata.json"""
+    try:
+        meta_path = os.path.join(DATA_DIR, 'model_metadata.json')
+        with open(meta_path, 'r') as f:
+            meta = json.load(f)
+        return round(meta.get('accuracy', 0) * 100, 1)
+    except Exception:
+        return None  # None = modelo não treinado ainda
 
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, '..', 'frontend'), static_url_path='')
 CORS(app)
@@ -240,7 +277,7 @@ def get_stats():
             "avg_humidity":     avg_humidity,
             "cities_at_risk":   cities_at_risk,
             "cities_monitored": len(weather),
-            "model_accuracy":   87.3,
+            "model_accuracy":   get_model_accuracy(),
             "last_update":      datetime.now().isoformat()
         }
     })
@@ -254,7 +291,7 @@ def health():
         "fires_loaded":   len(load_csv(FIRES_FILE)),
         "weather_loaded": len(load_csv(WEATHER_FILE)),
         "model_loaded":   predictor.model is not None,
-        "model_accuracy": 87.3,
+        "model_accuracy": get_model_accuracy(),
         "timestamp":      datetime.now().isoformat(),
         "version":        "1.0.0"
     })
@@ -299,7 +336,7 @@ def update_firms_data():
         try:
             print("\n🔄 Atualizando NASA FIRMS...")
             import subprocess
-            r = subprocess.run(['python', 'fetch_nasa_firms.py'],  # ← unificado com auto_update_data.py
+            r = subprocess.run(['python', 'fetch_nasa_firms.py'],
                 capture_output=True, text=True, cwd=os.path.dirname(__file__))
             if r.returncode == 0:
                 print("✅ NASA FIRMS ok")
@@ -307,6 +344,14 @@ def update_firms_data():
                 print(f"⚠️ NASA FIRMS stderr:\n{r.stderr}")
             if r.stdout:
                 print(r.stdout)
+
+            # Enriquece com área real via Sentinel-3 FRP
+            print("\n🛰️  Enriquecendo com Sentinel-3 FRP...")
+            try:
+                enrich_fires_with_real_area()
+            except Exception as frp_err:
+                print(f"⚠️  FRP enrichment falhou (usando estimativa): {frp_err}")
+
             fetch_current_weather()
             fetch_forecast()
             print("✅ Meteorologia OWM atualizada")
@@ -319,6 +364,7 @@ def update_firms_data():
 # ===== MAIN =====
 
 
+validate_env_keys()
 load_data()
 threading.Thread(target=update_firms_data, daemon=True).start()
 
