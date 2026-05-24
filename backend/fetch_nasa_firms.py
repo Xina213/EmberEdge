@@ -122,14 +122,30 @@ def save_to_csv(fires):
             fire_id = f"FIRMS_{fire['acq_date'].replace('-', '')}_{idx:03d}"
             lat = float(fire['latitude'])
             lon = float(fire['longitude'])
-            confidence = float(fire.get('confidence', 80))
-            brightness = float(fire.get('brightness', 300))
-            
+
+            # VIIRS devolve 'l' (low), 'n' (nominal), 'h' (high) em vez de numero
+            confidence_raw = fire.get('confidence', '80')
+            confidence_map = {'l': 40, 'n': 75, 'h': 95}
+            if confidence_raw in confidence_map:
+                confidence = confidence_map[confidence_raw]
+            else:
+                try:
+                    confidence = float(confidence_raw)
+                except (ValueError, TypeError):
+                    confidence = 75  # default nominal
+
+            # brightness pode estar em 'bright_ti4' (VIIRS) ou 'brightness' (MODIS)
+            brightness_raw = fire.get('bright_ti4') or fire.get('brightness', '300')
+            try:
+                brightness = float(brightness_raw)
+            except (ValueError, TypeError):
+                brightness = 300.0
+
             temp_celsius = brightness - 273.15
             area_ha = 14 if 'VIIRS' in fire.get('satellite', '') else 100
-            
+
             acq_time = fire.get('acq_time', '0000')
-            hours_active = int(acq_time[:2]) if acq_time.isdigit() else 0
+            hours_active = int(acq_time[:2]) if str(acq_time).isdigit() else 0
             
             city = get_nearest_city(lat, lon)
             
