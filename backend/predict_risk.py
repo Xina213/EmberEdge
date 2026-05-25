@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-EmberEdge - Risk Predictor (UPDATED for 7-feature model)
-Compatible with retrained model using real historical data
+EmberEdge - Risk Predictor (UPDATED for 8-feature model with NDVI)
+Compatible with retrained model using NDVI + real historical data
 """
 
 import joblib
@@ -76,6 +76,29 @@ CITY_COORDS = {
     'Barreiro': {'lat': 38.66, 'lon': -9.07},
 }
 
+def estimate_ndvi(month, lat):
+    """
+    Estimate NDVI based on month and latitude (Portugal vegetation cycle)
+    NDVI: -1 to 1 (higher = greener vegetation)
+    Summer (6-9): low NDVI = dry vegetation = HIGH FIRE RISK
+    Winter/Spring (11-4): high NDVI = green vegetation = low risk
+    """
+    ndvi_by_month = {
+        1: 0.65, 2: 0.60, 3: 0.55, 4: 0.50, 5: 0.45,
+        6: 0.35, 7: 0.25, 8: 0.22, 9: 0.30, 10: 0.45,
+        11: 0.55, 12: 0.62
+    }
+
+    # Latitude factor: south is drier (lower NDVI)
+    lat_factor = (lat - 37.0) * 0.05
+
+    # Add some random variation
+    import random
+    ndvi = ndvi_by_month[month] - lat_factor + random.uniform(-0.08, 0.08)
+
+    # Clamp to valid NDVI range
+    return round(max(-0.1, min(1.0, ndvi)), 3)
+
 class RiskPredictor:
     def __init__(self):
         self.model = None
@@ -83,17 +106,17 @@ class RiskPredictor:
         self.load_model()
 
     def load_model(self):
-        """Load trained model"""
+        """Load trained model (8 features with NDVI)"""
         try:
             self.model = joblib.load(MODEL_PATH)
-            print(f"[OK] Model loaded: {MODEL_PATH}")
+            print(f"[OK] Model loaded (8 features with NDVI): {MODEL_PATH}")
         except FileNotFoundError:
             print(f"[WARN] Model not found: {MODEL_PATH}")
             self.model = None
 
-    def predict(self, temperature, humidity, wind_speed, precipitation, city_name, month=None):
+    def predict(self, temperature, humidity, wind_speed, precipitation, city_name, month=None, ndvi=None):
         """
-        Predict fire risk with 7 features
+        Predict fire risk with 8 features (including NDVI)
 
         Args:
             temperature: Temperature in C
@@ -102,6 +125,7 @@ class RiskPredictor:
             precipitation: Precipitation in mm
             city_name: City name (for lat/lon)
             month: Month (1-12), if None uses current month
+            ndvi: NDVI value (-1 to 1), if None estimates based on month/location
         """
         if self.model is None:
             return self._fallback_prediction(temperature, humidity)
@@ -119,8 +143,12 @@ class RiskPredictor:
             if month is None:
                 month = datetime.now().month
 
-            # Create feature array in correct order (7 features)
-            # Order: temperature, humidity, wind_speed, precipitation, month, lat, lon
+            # Estimate NDVI if not provided
+            if ndvi is None:
+                ndvi = estimate_ndvi(month, lat)
+
+            # Create feature array in correct order (8 features)
+            # Order: temperature, humidity, wind_speed, precipitation, month, lat, lon, ndvi
             features = np.array([[
                 temperature,
                 humidity,
@@ -128,7 +156,8 @@ class RiskPredictor:
                 precipitation,
                 month,
                 lat,
-                lon
+                lon,
+                ndvi
             ]])
 
             # Prediction
@@ -146,7 +175,8 @@ class RiskPredictor:
                 },
                 'city': city_name,
                 'coordinates': {'lat': lat, 'lon': lon},
-                'month': month
+                'month': month,
+                'ndvi': ndvi  # Include NDVI in response for transparency
             }
 
             return result
@@ -178,7 +208,8 @@ class RiskPredictor:
             },
             'city': 'Unknown',
             'coordinates': {'lat': 40.0, 'lon': -8.0},
-            'month': datetime.now().month
+            'month': datetime.now().month,
+            'ndvi': 0.5
         }
 
 # Singleton instance

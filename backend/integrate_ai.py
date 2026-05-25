@@ -102,7 +102,7 @@ def predict_risk_from_forecast(forecast_csv="../data/forecast_all.csv"):
             "temperature": row["temperature"],
             "humidity":    row["humidity"],
             "wind_speed":  row["wind_speed"],
-            "risk_level":  prediction["risk_label"],
+            "risk_level":  prediction["risk_level"],
             "confidence":  prediction["confidence"]
         })
     df_result = pd.DataFrame(results)

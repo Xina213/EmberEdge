@@ -473,7 +473,7 @@ async function displayRiskCities(weatherData) {
     for (const city of cityNames.slice(0, 15)) {
         try {
             const riskData = await fetchAPI(`/risk/${encodeURIComponent(city)}`);
-            
+
             if (riskData.status === 'success') {
                 citiesWithRisk.push({
                     name: city,
@@ -484,8 +484,8 @@ async function displayRiskCities(weatherData) {
             console.error(`Erro risco ${city}:`, error);
         }
     }
-    
-    citiesWithRisk.sort((a, b) => b.risk_code - a.risk_code);
+
+    citiesWithRisk.sort((a, b) => b.risk_value - a.risk_value);
     
     const topCities = citiesWithRisk.slice(0, 5);
     
@@ -509,9 +509,10 @@ async function displayRiskCities(weatherData) {
                 </div>
                 <div class="risk-details">
                     <small>
-                        ${ICONS.temp}${city.temperature}°C | 
-                        ${ICONS.humidity}${city.humidity}% humidade | 
-                        ${ICONS.target}${city.confidence}% confiança
+                        ${ICONS.temp}${city.temperature}°C |
+                        ${ICONS.humidity}${city.humidity}% humidade |
+                        ${ICONS.target}${city.confidence?.toFixed(0)}% confiança
+                        ${city.ndvi ? `| NDVI: ${city.ndvi.toFixed(2)}` : ''}
                     </small>
                 </div>
             </li>

@@ -1,7 +1,7 @@
 {
-  "accuracy": 0.8689,
+  "accuracy": 0.8824,
   "n_trees": 500,
-  "n_features": 7,
+  "n_features": 8,
   "feature_names": [
     "temperature",
     "humidity",
@@ -9,13 +9,15 @@
     "precipitation",
     "month",
     "lat",
-    "lon"
+    "lon",
+    "ndvi"
   ],
-  "training_date": "2026-05-25T17:54:09.332135",
+  "training_date": "2026-05-25T18:10:32.173648",
   "n_samples": 5184,
   "class_distribution": {
     "baixo": 1106,
     "medio": 2668,
     "alto": 1410
-  }
+  },
+  "ndvi_included": true
 }
