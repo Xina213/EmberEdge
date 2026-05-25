@@ -1,9 +1,8 @@
 {
-  "trained_date": "2026-03-18T19:15:20.424627",
-  "accuracy": 0.8958534233365477,
-  "model_type": "RandomForestClassifier",
-  "n_estimators": 200,
-  "features": [
+  "accuracy": 0.8689,
+  "n_trees": 500,
+  "n_features": 7,
+  "feature_names": [
     "temperature",
     "humidity",
     "wind_speed",
@@ -12,19 +11,11 @@
     "lat",
     "lon"
   ],
-  "feature_importance": {
-    "lat": 0.24654220654686543,
-    "temperature": 0.19844065361588012,
-    "month": 0.18514999657494402,
-    "humidity": 0.1258924546273003,
-    "precipitation": 0.10952046427231736,
-    "lon": 0.09691879312923632,
-    "wind_speed": 0.037535431233456554
-  },
-  "data_source": "ICNF Historical Data 2000-2023",
-  "risk_levels": {
-    "0": "Baixo",
-    "1": "Médio",
-    "2": "Alto"
+  "training_date": "2026-05-25T17:54:09.332135",
+  "n_samples": 5184,
+  "class_distribution": {
+    "baixo": 1106,
+    "medio": 2668,
+    "alto": 1410
   }
 }

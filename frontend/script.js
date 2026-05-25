@@ -525,12 +525,18 @@ async function displayRiskCities(weatherData) {
 // ===== FOGOS ATIVOS NO MAPA =====
 function displayFiresOnMap(firesData) {
     const fires = firesData.data;
-    
+
+    // Limpar marcadores anteriores
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+
     if (fires.length === 0) {
         console.log('ℹ️ Sem fogos ativos para mostrar no mapa');
         return;
     }
-    
+
+    console.log(`🗺️ A adicionar ${fires.length} marcadores ao mapa...`);
+
     fires.forEach(fire => {
         const marker = L.circleMarker(
             [parseFloat(fire.latitude), parseFloat(fire.longitude)],
@@ -557,7 +563,13 @@ function displayFiresOnMap(firesData) {
         
         markers.push(marker);
     });
-    
+
+    // Ajustar o mapa para mostrar todos os fogos
+    if (markers.length > 0) {
+        const group = new L.featureGroup(markers);
+        map.fitBounds(group.getBounds().pad(0.1));
+    }
+
     console.log(`✅ ${fires.length} fogos ativos no mapa`);
 }
 

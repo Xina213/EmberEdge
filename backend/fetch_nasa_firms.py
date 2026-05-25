@@ -145,11 +145,24 @@ def save_to_csv(fires):
 
             # VIIRS: satellite='N' (NOAA) ou 'S' (Suomi), instrumento='VIIRS'
             # MODIS: satellite='T' (Terra) ou 'A' (Aqua), instrumento='MODIS'
-            # VIIRS pixel ~375m = ~14ha | MODIS pixel ~1km = ~100ha
+            # Calculate area based on brightness temperature (FRP proxy)
+            # Higher brightness = hotter fire = larger area
             instrument = fire.get('instrument', '').upper()
             satellite  = fire.get('satellite', '').upper()
             is_viirs   = 'VIIRS' in instrument or satellite in ('N', 'S', '1')
-            area_ha    = 14 if is_viirs else 100
+
+            # Dynamic area calculation based on brightness temperature
+            # Brightness 300K (~27C) = small fire, 600K+ (~327C) = large fire
+            if brightness > 600:
+                area_ha = 500 + (brightness - 600) * 5  # Large fire: 500-1000+ ha
+            elif brightness > 500:
+                area_ha = 100 + (brightness - 500) * 4  # Medium fire: 100-500 ha
+            elif brightness > 400:
+                area_ha = 20 + (brightness - 400) * 0.8  # Small fire: 20-100 ha
+            else:
+                area_ha = 5 + (brightness - 300) * 0.15  # Very small: 5-20 ha
+
+            area_ha = round(max(1, min(area_ha, 5000)), 1)
 
             # acq_time é a hora UTC de passagem do satélite (ex: '1230' = 12h30)
             # Não sabemos há quantas horas está ativo — deixamos 0 (desconhecido)
@@ -188,10 +201,10 @@ if __name__ == '__main__':
     
     print(f"\n[KEY] {NASA_KEY[:20]}...{NASA_KEY[-10:]}")
     
-    fires_viirs = fetch_firms('VIIRS_SNPP_NRT', days=1)
-    fires_modis = fetch_firms('MODIS_NRT', days=1)
+    fires_viirs = fetch_firms('VIIRS_SNPP_NRT', days=5)
+    fires_modis = fetch_firms('MODIS_NRT', days=5)
     
-    all_fires = fires_viirs + fires_modis
+    all_fires = (fires_viirs or []) + (fires_modis or [])
     
     print(f"\n[TOTAL] {len(all_fires)} hotspots")
     
