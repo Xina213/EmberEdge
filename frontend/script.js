@@ -91,6 +91,9 @@ async function loadAllData() {
         // Verificar alertas de risco alto
         checkAlerts(riskAll);
 
+        // Mostrar heatmap de risco
+        displayHeatmap(riskAll);
+
         updateStatus('Dados atualizados', true);
         updateLastUpdate();
 
@@ -123,6 +126,46 @@ function checkAlerts(riskAll) {
         alertBanner.classList.remove('hidden');
     } else {
         alertBanner.classList.add('hidden');
+    }
+}
+
+// ===== HEATMAP DE RISCO =====
+let heatLayer = null;
+
+function displayHeatmap(riskAll) {
+    if (!riskAll || !riskAll.data || !map) return;
+
+    // Remover heatmap anterior se existir
+    if (heatLayer) {
+        map.removeLayer(heatLayer);
+    }
+
+    const heatPoints = [];
+
+    for (const [city, data] of Object.entries(riskAll.data)) {
+        if (data.coordinates && data.risk_value !== undefined) {
+            const lat = data.coordinates.lat;
+            const lon = data.coordinates.lon;
+            const risk = data.risk_value; // 0, 1, or 2
+
+            // Normalizar: Baixo=0.3, Médio=0.6, Alto=1.0
+            const intensity = risk === 0 ? 0.3 : (risk === 1 ? 0.6 : 1.0);
+            heatPoints.push([lat, lon, intensity]);
+        }
+    }
+
+    if (heatPoints.length > 0) {
+        heatLayer = L.heatLayer(heatPoints, {
+            radius: 35,
+            blur: 20,
+            maxZoom: 10,
+            gradient: {
+                0.3: '#10B981',  // Verde (Baixo)
+                0.6: '#F59E0B',  // Amarelo (Médio)
+                1.0: '#EF4444'   // Vermelho (Alto)
+            }
+        }).addTo(map);
+        console.log(`🔥 Heatmap adicionado: ${heatPoints.length} pontos`);
     }
 }
 
