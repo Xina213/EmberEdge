@@ -1,5 +1,5 @@
 {
-  "accuracy": 0.8824,
+  "accuracy": 0.9142,
   "n_trees": 500,
   "n_features": 8,
   "feature_names": [
@@ -12,12 +12,14 @@
     "lon",
     "ndvi"
   ],
-  "training_date": "2026-05-25T18:10:32.173648",
+  "training_date": "2026-05-25T19:13:54.226459",
   "n_samples": 5184,
   "class_distribution": {
     "baixo": 1106,
     "medio": 2668,
     "alto": 1410
   },
+  "weather_source": "ERA5 (ECMWF reanalysis) - 100% REAL",
+  "fire_source": "ICNF (Portugal 2000-2023) - 100% REAL",
   "ndvi_included": true
 }
