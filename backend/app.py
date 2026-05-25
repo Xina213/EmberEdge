@@ -4,7 +4,7 @@
 
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
-import os, csv, threading, time, json
+import os, csv, threading, time, json, random
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from predict_risk import RiskPredictor

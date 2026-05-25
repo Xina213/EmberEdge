@@ -25,6 +25,19 @@ const ICONS = {
     check: '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>'
 };
 
+// ===== MAPEAMENTO DE NOMES (GeoJSON -> Cidades) =====
+const CITY_NAME_MAP = {
+    'Santarem': 'Santarem',
+    'Castelo Branco': 'Castelo Branco',
+    'Vila Real': 'Vila Real',
+    'Viana do Castelo': 'Viana do Castelo',
+    'Braganca': 'Braganca',
+    'Evora': 'Evora',
+    'Leiria': 'Leiria',
+    'Setubal': 'Setubal',
+    'Portalegre': 'Portalegre'
+};
+
 // ===== INICIALIZAÇÃO =====
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🔥 EmberEdge Dashboard iniciando...');
@@ -88,8 +101,7 @@ async function addDistrictLayer(weatherData) {
     console.log('🗺️ Adicionando camada de distritos...');
     
     try {
-        const response = await 
-        fetch('https://raw.githubusercontent.com/codeforgermany/click_that_hood/master/public/data/portugal.geojson');
+        const response = await fetch('https://raw.githubusercontent.com/codeforgermany/click_that_hood/master/public/data/portugal.geojson');
         const geoData = await response.json();
         
         const cities = weatherData.data;

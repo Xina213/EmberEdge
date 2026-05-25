@@ -142,10 +142,26 @@ def save_to_csv(fires):
                 brightness = 300.0
 
             temp_celsius = brightness - 273.15
-            area_ha = 14 if 'VIIRS' in fire.get('satellite', '') else 100
 
+            # VIIRS: satellite='N' (NOAA) ou 'S' (Suomi), instrumento='VIIRS'
+            # MODIS: satellite='T' (Terra) ou 'A' (Aqua), instrumento='MODIS'
+            # VIIRS pixel ~375m = ~14ha | MODIS pixel ~1km = ~100ha
+            instrument = fire.get('instrument', '').upper()
+            satellite  = fire.get('satellite', '').upper()
+            is_viirs   = 'VIIRS' in instrument or satellite in ('N', 'S', '1')
+            area_ha    = 14 if is_viirs else 100
+
+            # acq_time é a hora UTC de passagem do satélite (ex: '1230' = 12h30)
+            # Não sabemos há quantas horas está ativo — deixamos 0 (desconhecido)
+            # O frontend deve mostrar "Detetado às HH:MM UTC" em vez de "X horas ativo"
             acq_time = fire.get('acq_time', '0000')
-            hours_active = int(acq_time[:2]) if str(acq_time).isdigit() else 0
+            try:
+                acq_hour   = int(str(acq_time).zfill(4)[:2])
+                acq_minute = int(str(acq_time).zfill(4)[2:])
+                detection_time = f"{acq_hour:02d}:{acq_minute:02d} UTC"
+            except (ValueError, TypeError):
+                detection_time = "desconhecido"
+            hours_active = detection_time  # campo reutilizado com significado correto
             
             city = get_nearest_city(lat, lon)
             

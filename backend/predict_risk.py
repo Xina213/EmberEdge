@@ -13,6 +13,32 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, '..', 'data', 'risk_model.pkl')
 
 # Mapeamento de cidades para coordenadas
+CITY_ALIASES = {
+    'Lisbon': 'Lisboa', 'Porto': 'Porto', 'Coimbra': 'Coimbra',
+    'Braga': 'Braga', 'Faro': 'Faro', 'Evora': 'Évora',
+    'Guarda': 'Guarda', 'Beja': 'Beja', 'Viseu': 'Viseu',
+    'Aveiro': 'Aveiro', 'Setubal': 'Setúbal', 'Leiria': 'Leiria',
+    'Santarem': 'Santarém', 'Castelo Branco': 'Castelo Branco',
+    'Vila Real': 'Vila Real', 'Braganca': 'Bragança',
+    'Viana do Castelo': 'Viana do Castelo', 'Portalegre': 'Portalegre',
+    'Funchal': 'Funchal', 'Ponta Delgada': 'Ponta Delgada',
+    'Cascais': 'Cascais', 'Sintra': 'Sintra',
+    'Almada': 'Almada', 'Matosinhos': 'Matosinhos',
+    'Vila Nova de Gaia': 'Vila Nova de Gaia', 'Loures': 'Loures',
+    'Odivelas': 'Odivelas', 'Gondomar': 'Gondomar',
+    'Amadora': 'Amadora', 'Barreiro': 'Barreiro',
+    'Tomar': 'Tomar', 'Caldas da Rainha': 'Caldas da Rainha',
+    'Figueira da Foz': 'Figueira da Foz', 'Covilhã': 'Covilhã'
+}
+
+def normalize_city(name):
+    """Normaliza nome de cidade (inglês→português, lowercase→title case)"""
+    if not name:
+        return name
+    name = name.strip().title()
+    return CITY_ALIASES.get(name, name)
+
+# Mapeamento de cidades para coordenadas
 CITY_COORDS = {
     'Aveiro': {'lat': 40.64, 'lon': -8.65},
     'Beja': {'lat': 38.02, 'lon': -7.87},
@@ -38,6 +64,19 @@ CITY_COORDS = {
     'Viana do Castelo': {'lat': 41.69, 'lon': -8.83},
     'Vila Real': {'lat': 41.30, 'lon': -7.74},
     'Viseu': {'lat': 40.66, 'lon': -7.91},
+    'Cascais': {'lat': 38.70, 'lon': -9.42},
+    'Sintra': {'lat': 38.80, 'lon': -9.38},
+    'Almada': {'lat': 38.68, 'lon': -9.16},
+    'Matosinhos': {'lat': 41.18, 'lon': -8.69},
+    'Vila Nova de Gaia': {'lat': 41.13, 'lon': -8.62},
+    'Loures': {'lat': 38.83, 'lon': -9.17},
+    'Odivelas': {'lat': 38.79, 'lon': -9.18},
+    'Gondomar': {'lat': 41.14, 'lon': -8.53},
+    'Amadora': {'lat': 38.75, 'lon': -9.23},
+    'Barreiro': {'lat': 38.66, 'lon': -9.07},
+    'Tomar': {'lat': 39.60, 'lon': -8.41},
+    'Caldas da Rainha': {'lat': 39.40, 'lon': -9.14},
+    'Figueira da Foz': {'lat': 40.15, 'lon': -8.86},
 }
 
 class RiskPredictor:
@@ -71,6 +110,9 @@ class RiskPredictor:
             return self._fallback_prediction(temperature, humidity)
         
         try:
+            # Normaliza nome da cidade (inglês→português)
+            city_name = normalize_city(city_name)
+
             # Obtem coordenadas da cidade
             coords = CITY_COORDS.get(city_name, {'lat': 40.0, 'lon': -8.0})
             lat = coords['lat']
