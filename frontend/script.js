@@ -513,9 +513,15 @@ async function displayRiskCities(weatherData) {
     }
 
     citiesWithRisk.sort((a, b) => b.risk_value - a.risk_value);
-    
+
     const topCities = citiesWithRisk.slice(0, 5);
-    
+
+    if (topCities.length === 0) {
+        document.getElementById('risk-cities-content').innerHTML =
+            '<p style="text-align:center;color:var(--color-text-secondary);padding:1rem;">Sem dados de risco disponíveis</p>';
+        return;
+    }
+
     let html = '<ul class="risk-list">';
     
     topCities.forEach((city, idx) => {
@@ -524,7 +530,7 @@ async function displayRiskCities(weatherData) {
             1: '#F59E0B',
             2: '#EF4444'
         };
-        const riskColor = colors[city.risk_code];
+        const riskColor = colors[city.risk_value];
         
         html += `
             <li class="risk-item" style="border-left: 4px solid ${riskColor};">
