@@ -100,6 +100,9 @@ def index():
 
 @app.route('/<path:path>')
 def serve_static(path):
+    # Don't catch API routes
+    if path.startswith('api/'):
+        return jsonify({"status":"error","message":"Endpoint não encontrado","code":404}), 404
     return send_from_directory('../frontend', path)
 
 
