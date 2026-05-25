@@ -202,33 +202,88 @@ def get_all_risks():
 
 @app.route('/api/history')
 def get_history():
-    real_fires  = len(load_csv(FIRES_FILE))
-    history     = {}
-    base_date   = datetime.now() - timedelta(days=6)
+    """Return 7-day risk history using real forecast + ML predictions"""
+    history = {}
+    base_date = datetime.now() - timedelta(days=6)
 
+    # Load forecast data
+    forecast_rows = load_csv(os.path.join(DATA_DIR, "forecast_all.csv"))
+    forecast_by_city = {}
+    for r in forecast_rows:
+        city = r.get('city', '')
+        if city not in forecast_by_city:
+            forecast_by_city[city] = []
+        forecast_by_city[city].append(r)
+
+    # Load historical fire data for current month context
+    hist_fires = load_csv(os.path.join(DATA_DIR, 'fires', 'historical_fires.csv'))
+    current_month = datetime.now().month
+    month_fires = [f for f in hist_fires if int(f.get('month', 0)) == current_month]
+    avg_fires_per_day = round(len(month_fires) / 30, 1) if month_fires else 0
+
+    # Get weather data for current conditions
+    weather_data = load_csv(WEATHER_FILE)
 
     for i in range(7):
         date     = base_date + timedelta(days=i)
         date_str = date.strftime('%Y-%m-%d')
 
+        # Try to get real weather for this day
+        temps, humidities, winds = [], [], []
 
-        random.seed(int(date.strftime('%Y%m%d')))
+        for city, forecasts in forecast_by_city.items():
+            for fc in forecasts:
+                try:
+                    fc_date = datetime.strptime(fc['datetime'][:10], '%Y-%m-%d')
+                    if fc_date.date() == date.date():
+                        temps.append(float(fc.get('temperature', 15)))
+                        humidities.append(float(fc.get('humidity', 70)))
+                        winds.append(float(fc.get('wind_speed', 10)))
+                except (ValueError, KeyError):
+                    continue
 
+        # Fallback to current weather if no forecast
+        if not temps and weather_data:
+            temps      = [float(w.get('temperature', 15)) for w in weather_data]
+            humidities = [float(w.get('humidity', 70))    for w in weather_data]
+            winds      = [float(w.get('wind_speed', 10))  for w in weather_data]
 
-        base_risk   = 0.25 + (0.15 * i / 6)
-        fires_today = real_fires if i == 6 else 0
+        avg_temp   = round(sum(temps) / len(temps), 1)       if temps      else 15.0
+        avg_humid  = round(sum(humidities) / len(humidities), 1) if humidities else 70.0
+        avg_wind   = round(sum(winds) / len(winds), 1)           if winds      else 10.0
 
+        # Calculate real risk using ML model
+        try:
+            result = predictor.predict(
+                temperature=avg_temp,
+                humidity=avg_humid,
+                wind_speed=avg_wind,
+                precipitation=0.0,
+                city_name='Lisboa',
+                month=date.month
+            )
+            risk_avg = round(result['risk_value'] / 2, 2)  # Normalize: 0, 0.5, 1.0
+        except Exception:
+            # Fallback: simple risk calculation
+            if avg_temp > 30 and avg_humid < 30:
+                risk_avg = 1.0
+            elif avg_temp > 25 and avg_humid < 50:
+                risk_avg = 0.5
+            else:
+                risk_avg = 0.25
+
+        # Real fires only for today
+        real_fires = len(load_csv(FIRES_FILE))
+        fires_today = real_fires if i == 6 else int(avg_fires_per_day)
 
         history[date_str] = {
-            'risk_avg':        round(base_risk + random.uniform(-0.05, 0.1), 2),
+            'risk_avg':        risk_avg,
             'fires_count':     fires_today,
-            'area_burned_ha':  fires_today * random.randint(50, 200),
-            'avg_temperature': round(random.uniform(14, 20), 1),
-            'avg_humidity':    random.randint(50, 75)
+            'area_burned_ha':  fires_today * 100,
+            'avg_temperature': avg_temp,
+            'avg_humidity':    avg_humid
         }
 
-
-    random.seed()
     return jsonify(history)
 
 

@@ -820,3 +820,76 @@ header {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--color-primary-dark);
 }
+
+/* ===== ALERTA DE RISCO ALTO ===== */
+.risk-alert {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.95));
+    color: white;
+    padding: 12px 20px;
+    margin: 0 0 20px 0;
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+    animation: alertPulse 2s infinite;
+}
+
+.risk-alert.hidden {
+    display: none;
+}
+
+.alert-content {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.alert-icon {
+    font-size: 1.8rem;
+    animation: alertBounce 1s infinite alternate;
+}
+
+.alert-text {
+    flex: 1;
+}
+
+.alert-text strong {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.alert-text span {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.alert-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.alert-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+@keyframes alertPulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4); }
+    50% { box-shadow: 0 4px 30px rgba(239, 68, 68, 0.7); }
+}
+
+@keyframes alertBounce {
+    from { transform: scale(1); }
+    to { transform: scale(1.2); }
+}

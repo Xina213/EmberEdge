@@ -71,28 +71,58 @@ function initMap() {
 async function loadAllData() {
     console.log('📡 Carregando dados...');
     updateStatus('Atualizando dados...', false);
-    
+
     try {
-        const [stats, fires, weather, history] = await Promise.all([
+        const [stats, fires, weather, history, riskAll] = await Promise.all([
             fetchAPI('/stats'),
             fetchAPI('/fires'),
             fetchAPI('/weather'),
-            fetchAPI('/history')
+            fetchAPI('/history'),
+            fetchAPI('/risk/all')
         ]);
-        
+
         updateStats(stats);
         displayFires(fires);
         await displayRiskCities(weather);
         plotHistory(history);
         displayFiresOnMap(fires);
         await addDistrictLayer(weather);
-        
+
+        // Verificar alertas de risco alto
+        checkAlerts(riskAll);
+
         updateStatus('Dados atualizados', true);
         updateLastUpdate();
-        
+
     } catch (error) {
         console.error('❌ Erro carregar dados:', error);
         updateStatus('Erro ao carregar', false);
+    }
+}
+
+// ===== VERIFICAR E MOSTRAR ALERTAS =====
+function checkAlerts(riskAll) {
+    if (!riskAll || !riskAll.data) return;
+
+    const risks = riskAll.data;
+    const highRiskCities = [];
+
+    for (const [city, data] of Object.entries(risks)) {
+        if (data.risk_level === 'Alto' || data.risk_value === 2) {
+            highRiskCities.push(city);
+        }
+    }
+
+    const alertBanner = document.getElementById('risk-alert');
+    const alertTitle = document.getElementById('alert-title');
+    const alertDesc = document.getElementById('alert-desc');
+
+    if (highRiskCities.length > 0) {
+        alertTitle.textContent = `ALERTA: ${highRiskCities.length} cidade(s) com Risco Alto!`;
+        alertDesc.textContent = `Cidades em risco elevado: ${highRiskCities.slice(0, 3).join(', ')}${highRiskCities.length > 3 ? '...' : ''}`;
+        alertBanner.classList.remove('hidden');
+    } else {
+        alertBanner.classList.add('hidden');
     }
 }
 
