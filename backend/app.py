@@ -4,16 +4,20 @@
 
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
-import os, csv, threading, time, json, random, unicodedata
+import os, csv, threading, time, json, unicodedata
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from predict_risk import RiskPredictor
+from predict_risk import RiskPredictor, get_predictor, get_ndvi_for_city, estimate_ndvi
 from integrate_ai import AIHistoricalIntegration
 from copernicus_integration import CopernicusIntegration
 from copernicus_frp import enrich_fires_with_real_area
 from fetch_weather import fetch_current_weather, fetch_forecast
 
 load_dotenv()
+
+# ===== CSV LOCK (thread safety for gunicorn) =====
+csv_lock = threading.Lock()
+
 
 # ===== VALIDAÇÃO DE KEYS NO ARRANQUE =====
 def validate_env_keys():
@@ -32,7 +36,7 @@ def validate_env_keys():
     if missing:
         print("\n⚠️  KEYS EM FALTA NO .env / RENDER ENVIRONMENT:")
         for key, url in missing:
-            print(f"   ❌ {key} → obtém em: {url}")
+            print(f"   ❌ {key} -> obtém em: {url}")
         print("   Algumas funcionalidades estarão indisponíveis.\n")
     else:
         print("✅ Todas as API keys configuradas\n")
@@ -56,7 +60,7 @@ def get_model_accuracy():
             meta = json.load(f)
         return round(meta.get('accuracy', 0) * 100, 1)
     except Exception:
-        return None  # None = modelo não treinado ainda
+        return None
 
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, '..', 'frontend'), static_url_path='')
 CORS(app)
@@ -73,9 +77,10 @@ def load_csv(filepath):
         return []
     data = []
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            for row in csv.DictReader(f):
-                data.append(row)
+        with csv_lock:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                for row in csv.DictReader(f):
+                    data.append(row)
     except Exception as e:
         print(f"❌ Erro carregar {filepath}: {e}")
     return data
@@ -100,7 +105,6 @@ def index():
 
 @app.route('/<path:path>')
 def serve_static(path):
-    # Don't catch API routes
     if path.startswith('api/'):
         return jsonify({"status":"error","message":"Endpoint não encontrado","code":404}), 404
     return send_from_directory('../frontend', path)
@@ -166,7 +170,6 @@ def get_forecast():
 def get_risk_city(city):
     try:
         current_weather = load_csv(WEATHER_FILE)
-        # Normalize accents for comparison (e.g., Bragança -> Braganca)
         city_norm = unicodedata.normalize('NFKD', city).encode('ASCII', 'ignore').decode('utf-8').lower()
         wd = next((w for w in current_weather if unicodedata.normalize('NFKD', w['city']).encode('ASCII', 'ignore').decode('utf-8').lower()==city_norm), None)
         if not wd:
@@ -205,13 +208,34 @@ def get_all_risks():
 
 
 
+@app.route('/api/ndvi')
+def get_ndvi_all():
+    """Return current NDVI values for all monitored cities."""
+    rows = load_csv(WEATHER_FILE)
+    result = {}
+    month = datetime.now().month
+
+    for r in rows:
+        city = r.get('city', '')
+        lat = float(r.get('latitude', 40))
+        ndvi, is_real = get_ndvi_for_city(city, month, lat)
+        result[city] = {
+            'ndvi': ndvi,
+            'source': 'real' if is_real else 'estimated',
+            'latitude': lat,
+            'month': month
+        }
+
+    return jsonify({"status":"success","count":len(result),"timestamp":datetime.now().isoformat(),"data":result})
+
+
+
 @app.route('/api/history')
 def get_history():
     """Return 7-day risk history using real forecast + ML predictions"""
     history = {}
     base_date = datetime.now() - timedelta(days=6)
 
-    # Load forecast data
     forecast_rows = load_csv(os.path.join(DATA_DIR, "forecast_all.csv"))
     forecast_by_city = {}
     for r in forecast_rows:
@@ -220,20 +244,17 @@ def get_history():
             forecast_by_city[city] = []
         forecast_by_city[city].append(r)
 
-    # Load historical fire data for current month context
     hist_fires = load_csv(os.path.join(DATA_DIR, 'fires', 'historical_fires.csv'))
     current_month = datetime.now().month
     month_fires = [f for f in hist_fires if int(f.get('month', 0)) == current_month]
     avg_fires_per_day = round(len(month_fires) / 30, 1) if month_fires else 0
 
-    # Get weather data for current conditions
     weather_data = load_csv(WEATHER_FILE)
 
     for i in range(7):
         date     = base_date + timedelta(days=i)
         date_str = date.strftime('%Y-%m-%d')
 
-        # Try to get real weather for this day
         temps, humidities, winds = [], [], []
 
         for city, forecasts in forecast_by_city.items():
@@ -247,7 +268,6 @@ def get_history():
                 except (ValueError, KeyError):
                     continue
 
-        # Fallback to current weather if no forecast
         if not temps and weather_data:
             temps      = [float(w.get('temperature', 15)) for w in weather_data]
             humidities = [float(w.get('humidity', 70))    for w in weather_data]
@@ -257,7 +277,6 @@ def get_history():
         avg_humid  = round(sum(humidities) / len(humidities), 1) if humidities else 70.0
         avg_wind   = round(sum(winds) / len(winds), 1)           if winds      else 10.0
 
-        # Calculate real risk using ML model
         try:
             result = predictor.predict(
                 temperature=avg_temp,
@@ -267,9 +286,8 @@ def get_history():
                 city_name='Lisboa',
                 month=date.month
             )
-            risk_avg = round(result['risk_value'] / 2, 2)  # Normalize: 0, 0.5, 1.0
+            risk_avg = round(result['risk_value'] / 2, 2)
         except Exception:
-            # Fallback: simple risk calculation
             if avg_temp > 30 and avg_humid < 30:
                 risk_avg = 1.0
             elif avg_temp > 25 and avg_humid < 50:
@@ -277,7 +295,6 @@ def get_history():
             else:
                 risk_avg = 0.25
 
-        # Real fires only for today
         real_fires = len(load_csv(FIRES_FILE))
         fires_today = real_fires if i == 6 else int(avg_fires_per_day)
 
@@ -353,7 +370,7 @@ def health():
         "model_loaded":   predictor.model is not None,
         "model_accuracy": get_model_accuracy(),
         "timestamp":      datetime.now().isoformat(),
-        "version":        "1.0.0"
+        "version":        "1.1.0"
     })
 
 
@@ -371,6 +388,16 @@ def copernicus_status():
         })
     except Exception as e:
         return jsonify({"status":"error","message":str(e),"service":"Copernicus Data Space"}), 500
+
+
+
+@app.route('/api/districts.geojson')
+def serve_districts():
+    """Serve the Portugal districts GeoJSON locally."""
+    geojson_path = os.path.join(BASE_DIR, '..', 'data', 'portugal_districts.geojson')
+    if os.path.exists(geojson_path):
+        return send_from_directory(os.path.join(BASE_DIR, '..', 'data'), 'portugal_districts.geojson')
+    return jsonify({"status":"error","message":"GeoJSON not available locally"}), 404
 
 
 
@@ -405,7 +432,6 @@ def update_firms_data():
             if r.stdout:
                 print(r.stdout)
 
-            # Enriquece com área real via Sentinel-3 FRP
             print("\n🛰️  Enriquecendo com Sentinel-3 FRP...")
             try:
                 enrich_fires_with_real_area()

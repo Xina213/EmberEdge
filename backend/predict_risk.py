@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """
-EmberEdge - Risk Predictor (UPDATED for 8-feature model with NDVI)
-Compatible with retrained model using NDVI + real historical data
+EmberEdge - Risk Predictor
+Random Forest model with 8 features: temperature, humidity, wind_speed,
+precipitation, month, latitude, longitude, NDVI.
+
+NDVI (Normalized Difference Vegetation Index):
+  - Real values from Copernicus Sentinel-2 when available (cached)
+  - Seasonal estimation as fallback (based on Portuguese vegetation cycles)
 """
 
 import joblib
@@ -37,7 +42,6 @@ def normalize_city(name):
         return name
     import unicodedata
     name = name.strip().title()
-    # Remove accents (e.g., Bragança -> Braganca)
     name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('utf-8')
     return CITY_ALIASES.get(name, name)
 
@@ -79,12 +83,52 @@ CITY_COORDS = {
     'Barreiro': {'lat': 38.66, 'lon': -9.07},
 }
 
+# Load NDVI cache on import (lazy, for fallback only)
+_ndvi_cache = None
+_ndvi_cache_loaded = False
+
+
+def _load_ndvi_cache():
+    """Load the NDVI cache CSV into memory."""
+    global _ndvi_cache, _ndvi_cache_loaded
+    if _ndvi_cache_loaded:
+        return _ndvi_cache
+
+    _ndvi_cache_loaded = True
+    cache_path = os.path.join(BASE_DIR, '..', 'data', 'ndvi_cache.csv')
+
+    if not os.path.exists(cache_path):
+        _ndvi_cache = {}
+        return _ndvi_cache
+
+    try:
+        import csv
+        _ndvi_cache = {}
+        cache_ttl = 24 * 3600  # 24 hours
+        now = datetime.now()
+
+        with open(cache_path, 'r', encoding='utf-8') as f:
+            for row in csv.DictReader(f):
+                try:
+                    cached_time = datetime.fromisoformat(row['timestamp'])
+                    age = (now - cached_time).total_seconds()
+                    if age < cache_ttl:
+                        _ndvi_cache[row['city']] = float(row['ndvi'])
+                except (ValueError, KeyError):
+                    continue
+    except Exception:
+        _ndvi_cache = {}
+
+    return _ndvi_cache
+
+
 def estimate_ndvi(month, lat):
     """
-    Estimate NDVI based on month and latitude (Portugal vegetation cycle)
-    NDVI: -1 to 1 (higher = greener vegetation)
-    Summer (6-9): low NDVI = dry vegetation = HIGH FIRE RISK
-    Winter/Spring (11-4): high NDVI = green vegetation = low risk
+    Estimate NDVI based on seasonal patterns (Portugal vegetation cycle).
+    Used when real Copernicus NDVI is unavailable.
+
+    Summer (6-9): low NDVI = dry vegetation = higher fire risk
+    Winter/Spring (11-4): higher NDVI = green vegetation = lower risk
     """
     ndvi_by_month = {
         1: 0.65, 2: 0.60, 3: 0.55, 4: 0.50, 5: 0.45,
@@ -94,13 +138,40 @@ def estimate_ndvi(month, lat):
 
     # Latitude factor: south is drier (lower NDVI)
     lat_factor = (lat - 37.0) * 0.05
+    ndvi = ndvi_by_month.get(month, 0.45) - lat_factor
 
-    # Add some random variation
-    import random
-    ndvi = ndvi_by_month[month] - lat_factor + random.uniform(-0.08, 0.08)
-
-    # Clamp to valid NDVI range
     return round(max(-0.1, min(1.0, ndvi)), 3)
+
+
+def get_ndvi_for_city(city_name, month=None, lat=None):
+    """
+    Get NDVI for a city using the cache chain:
+    1. Check Copernicus real NDVI cache (24h TTL)
+    2. Fall back to seasonal estimation
+
+    Returns (ndvi_value, is_real) where is_real is True for cached Copernicus data.
+    """
+    if month is None:
+        month = datetime.now().month
+
+    # Step 1: Try real NDVI cache
+    cache = _load_ndvi_cache()
+    import unicodedata
+    city_norm = unicodedata.normalize('NFKD', city_name).encode('ASCII', 'ignore').decode('utf-8')
+
+    for cached_city, cached_ndvi in cache.items():
+        cached_norm = unicodedata.normalize('NFKD', cached_city).encode('ASCII', 'ignore').decode('utf-8')
+        if cached_norm.lower() == city_norm.lower():
+            return cached_ndvi, True
+
+    # Step 2: Fallback to seasonal estimation
+    if lat is None:
+        coords = CITY_COORDS.get(normalize_city(city_name), {'lat': 40.0})
+        lat = coords['lat']
+
+    ndvi = estimate_ndvi(month, lat)
+    return ndvi, False
+
 
 class RiskPredictor:
     def __init__(self):
@@ -119,7 +190,11 @@ class RiskPredictor:
 
     def predict(self, temperature, humidity, wind_speed, precipitation, city_name, month=None, ndvi=None):
         """
-        Predict fire risk with 8 features (including NDVI)
+        Predict fire risk with 8 features (including NDVI).
+
+        NDVI is sourced from:
+          - Copernicus Sentinel-2 cache (real satellite data) if available
+          - Seasonal estimation otherwise
 
         Args:
             temperature: Temperature in C
@@ -128,7 +203,7 @@ class RiskPredictor:
             precipitation: Precipitation in mm
             city_name: City name (for lat/lon)
             month: Month (1-12), if None uses current month
-            ndvi: NDVI value (-1 to 1), if None estimates based on month/location
+            ndvi: NDVI value (-1 to 1), if None auto-detects from cache or estimates
         """
         if self.model is None:
             return self._fallback_prediction(temperature, humidity)
@@ -146,12 +221,13 @@ class RiskPredictor:
             if month is None:
                 month = datetime.now().month
 
-            # Estimate NDVI if not provided
+            # Get NDVI: use provided value, or auto-detect from cache/fallback
+            ndvi_source = "provided"
             if ndvi is None:
-                ndvi = estimate_ndvi(month, lat)
+                ndvi, is_real = get_ndvi_for_city(city_name, month, lat)
+                ndvi_source = "real (Copernicus)" if is_real else "estimated (seasonal)"
 
             # Create feature array in correct order (8 features)
-            # Order: temperature, humidity, wind_speed, precipitation, month, lat, lon, ndvi
             features = np.array([[
                 temperature,
                 humidity,
@@ -179,7 +255,8 @@ class RiskPredictor:
                 'city': city_name,
                 'coordinates': {'lat': lat, 'lon': lon},
                 'month': month,
-                'ndvi': ndvi  # Include NDVI in response for transparency
+                'ndvi': ndvi,
+                'ndvi_source': ndvi_source  # New field: transparency about data origin
             }
 
             return result
@@ -212,8 +289,10 @@ class RiskPredictor:
             'city': 'Unknown',
             'coordinates': {'lat': 40.0, 'lon': -8.0},
             'month': datetime.now().month,
-            'ndvi': 0.5
+            'ndvi': 0.5,
+            'ndvi_source': 'fallback (no model)'
         }
+
 
 # Singleton instance
 _predictor = None

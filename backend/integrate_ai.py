@@ -48,11 +48,29 @@ def predict_with_historical(city_name, temperature, humidity, wind_speed, precip
             city_name=city_name,
             month=current_month
         )
-        result['historical'] = get_historical_fires_by_city(city_name, current_month)
-        return result
+        # Flatten ndvi and ndvi_source to top level for API response
+        ndvi_value = result.get('ndvi', None)
+        ndvi_source = result.get('ndvi_source', 'unknown')
+
+        # Build clean response
+        response = {
+            'risk_level': result['risk_level'],
+            'risk_value': result['risk_value'],
+            'confidence': result['confidence'],
+            'probabilities': result['probabilities'],
+            'city': result['city'],
+            'coordinates': result.get('coordinates', {'lat': 40.0, 'lon': -8.0}),
+            'month': result.get('month', current_month),
+            'temperature': temperature,
+            'humidity': humidity,
+            'ndvi': ndvi_value,
+            'ndvi_source': ndvi_source,
+            'historical': get_historical_fires_by_city(result.get('city', city_name), current_month)
+        }
+        return response
     except Exception as e:
         print(f"❌ Erro predict_with_historical: {e}")
-        return {'risk_level':'Médio','risk_value':1,'confidence':50.0,'city':city_name,'error':str(e)}
+        return {'risk_level':'Medio','risk_value':1,'confidence':50.0,'city':city_name,'error':str(e),'ndvi':0.5,'ndvi_source':'error_fallback'}
 
 
 class AIHistoricalIntegration:
@@ -63,7 +81,6 @@ class AIHistoricalIntegration:
     def predict(self, city_name, temperature, humidity, wind_speed, precipitation):
         return predict_with_historical(city_name, temperature, humidity, wind_speed, precipitation)
 
-    # ← MÉTODO QUE FALTAVA — chamado pelo /api/risk/all
     def predict_with_historical(self, city, day_of_year, temperature, wind_speed, humidity, lat, lon):
         return predict_with_historical(
             city_name=city,
@@ -114,7 +131,7 @@ if __name__ == '__main__':
     print("="*70)
     print("EMBEREDGE - AI HISTORICAL INTEGRATION")
     print("="*70)
-    for city in ['Guarda','Porto','Lisbon']:
+    for city in ['Guarda','Porto','Lisboa']:
         result = predict_with_historical(city, 25, 45, 20, 10)
-        print(f"\n[TEST] {city} → {result.get('risk_level')} ({result.get('confidence',0):.1f}%)")
-    print("\n✅ INTEGRAÇÃO AI + HISTÓRICO FUNCIONANDO!")
+        print(f"\n[TEST] {city} -> {result.get('risk_level')} ({result.get('confidence',0):.1f}%) NDVI: {result.get('ndvi', 'N/A')} ({result.get('ndvi_source', 'unknown')})")
+    print("\n✅ INTEGRACAO AI + HISTORICO + NDVI FUNCIONANDO!")

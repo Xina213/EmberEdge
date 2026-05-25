@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 """
 EmberEdge - Model Training Script
-Train Random Forest with 500 trees using 100% REAL data
-Uses ERA5 historical weather + real NDVI patterns
+Train Random Forest with 500 trees using REAL data.
+
+Data sources:
+  - Historical fires: ICNF (Portugal, 2000-2023) — real
+  - Weather: ERA5 (ECMWF reanalysis) — real
+  - NDVI: Copernicus Sentinel-2 cache when available, seasonal estimation otherwise
+
+IMPORTANT: NDVI is estimated based on seasonal patterns and latitude when
+real satellite data is unavailable. There is NO data leakage — NDVI is
+computed independently of fire area.
 """
 
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import joblib
 import os
 from datetime import datetime
@@ -22,6 +30,7 @@ HIST_CSV = os.path.join(DATA_DIR, 'fires', 'historical_fires.csv')
 ERA5_CSV = os.path.join(DATA_DIR, 'weather_historical_era5.csv')
 MODEL_PATH = os.path.join(DATA_DIR, 'risk_model.pkl')
 META_PATH = os.path.join(DATA_DIR, 'model_metadata.json')
+NDVI_CACHE = os.path.join(DATA_DIR, 'ndvi_cache.csv')
 
 # City coordinates
 CITY_COORDS = {
@@ -45,17 +54,56 @@ CITY_COORDS = {
     'Viseu': {'lat': 40.66, 'lon': -7.91},
 }
 
+NDVI_CACHE_CITIES = {}
+
+
 def normalize_text(text):
     """Remove accents and convert to standard form"""
     if not text:
         return text
-    # Remove accents
     text = unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('utf-8')
     return text.strip().title()
 
-def generate_ndvi(month, lat, area_hectares):
+
+def load_ndvi_cache():
+    """Load cached real NDVI values from Copernicus Sentinel-2."""
+    global NDVI_CACHE_CITIES
+    if NDVI_CACHE_CITIES:
+        return NDVI_CACHE_CITIES
+
+    if not os.path.exists(NDVI_CACHE):
+        print("[NDVI] No cache file found. Will use seasonal estimates.")
+        NDVI_CACHE_CITIES = {}
+        return NDVI_CACHE_CITIES
+
+    try:
+        import csv
+        now = datetime.now()
+        cache_ttl = 72 * 3600  # 72 hours for training
+
+        with open(NDVI_CACHE, 'r', encoding='utf-8') as f:
+            for row in csv.DictReader(f):
+                try:
+                    cached_time = datetime.fromisoformat(row['timestamp'])
+                    age = (now - cached_time).total_seconds()
+                    if age < cache_ttl:
+                        NDVI_CACHE_CITIES[row['city']] = float(row['ndvi'])
+                except (ValueError, KeyError):
+                    continue
+
+        print(f"[NDVI] Loaded {len(NDVI_CACHE_CITIES)} cached NDVI values")
+    except Exception as e:
+        print(f"[NDVI] Warning: cache read error: {e}")
+        NDVI_CACHE_CITIES = {}
+
+    return NDVI_CACHE_CITIES
+
+
+def estimate_ndvi(month, lat):
     """
-    Generate realistic NDVI based on month, location, and fire occurrence
+    Generate realistic NDVI based on seasonal patterns and latitude (Portugal).
+    NO dependency on fire area — this is purely seasonal/geographic.
+
     NDVI ranges: -1 to 1
     - High: 0.6-0.9 = dense green vegetation (winter/spring)
     - Medium: 0.3-0.6 = moderate vegetation (spring/autumn)
@@ -68,16 +116,33 @@ def generate_ndvi(month, lat, area_hectares):
     }
 
     lat_factor = (lat - 37.0) * 0.05
+    ndvi = ndvi_by_month.get(month, 0.45) - lat_factor
 
-    ndvi = ndvi_by_month[month] - lat_factor + np.random.normal(0, 0.08)
-
-    # Areas that actually burned had lower NDVI before burning
-    if area_hectares > 1000:
-        ndvi -= 0.15
-    elif area_hectares > 100:
-        ndvi -= 0.08
+    # Small random variation to reflect real NDVI variability
+    # (actual NDVI varies due to soil type, land use, etc.)
+    ndvi += np.random.normal(0, 0.05)
 
     return round(max(-0.1, min(1.0, ndvi)), 3)
+
+
+def generate_ndvi(month, lat, city_name):
+    """
+    Generate NDVI for training, checking real cache first.
+    """
+    ndvi_cache = load_ndvi_cache()
+
+    # Try real NDVI from cache
+    city_norm = normalize_text(city_name)
+    if city_norm in ndvi_cache:
+        return ndvi_cache[city_norm]
+
+    # Try matching city names
+    for cached_city, cached_ndvi in ndvi_cache.items():
+        if normalize_text(cached_city) == city_norm:
+            return cached_ndvi
+
+    # Fallback to seasonal estimate (NO area-based adjustment)
+    return estimate_ndvi(month, lat)
 
 
 def load_era5_data():
@@ -88,16 +153,24 @@ def load_era5_data():
 
     print(f"[ERA5] Loading {ERA5_CSV}...")
     df = pd.read_csv(ERA5_CSV)
-
-    # Normalize city names in ERA5
     df['city_normalized'] = df['city'].apply(normalize_text)
 
     print(f"       Loaded {len(df)} records")
     print(f"       Cities: {df['city'].nunique()}")
     return df
 
+
 def create_label(area_hectares):
-    """Create risk label based on burned area"""
+    """
+    Create risk label based on burned area.
+
+    Thresholds defined based on ICNF historical analysis:
+    - < 100 ha: small fire → Baixo (0)
+    - 100-1000 ha: medium fire → Medio (1)
+    - > 1000 ha: large fire → Alto (2)
+
+    Reference: https://fogos.icnf.pt/ - annual statistical reports
+    """
     if area_hectares > 1000:
         return 2  # Alto
     elif area_hectares > 100:
@@ -105,9 +178,11 @@ def create_label(area_hectares):
     else:
         return 0  # Baixo
 
+
 def train_model():
     print("\n" + "=" * 70)
-    print("EMBEREDGE - TRAINING RANDOM FOREST (500 TREES) - 100% REAL DATA")
+    print("EMBEREDGE - TRAINING RANDOM FOREST (500 TREES)")
+    print("Data sources: ERA5 (real) + ICNF (real) + NDVI (Copernicus/seasonal)")
     print("=" * 70)
 
     # Load historical fire data (real ICNF data)
@@ -115,7 +190,6 @@ def train_model():
     df_fires = pd.read_csv(HIST_CSV)
     print(f"       Loaded {len(df_fires)} fire records (ICNF 2000-2023)")
 
-    # Normalize district names in fire data
     df_fires['district_normalized'] = df_fires['district'].apply(normalize_text)
 
     # Load ERA5 weather data (real climate data)
@@ -127,13 +201,18 @@ def train_model():
         return None, 0
 
     print(f"\n[FEATURES] Merging fire data with REAL ERA5 weather...")
-    print(f"       Features: temperature, humidity, wind_speed, precipitation, month, lat, lon, NDVI")
+
+    # Load NDVI cache
+    load_ndvi_cache()
 
     features = []
     labels = []
 
     # Group ERA5 data by normalized city for faster lookup
     weather_groups = df_weather.groupby(['city_normalized', 'year', 'month'])
+
+    matched = 0
+    skipped = 0
 
     for _, row in df_fires.iterrows():
         year = int(row['year'])
@@ -142,7 +221,7 @@ def train_model():
         city_norm = normalize_text(city)
         area = float(row['area_hectares'])
 
-        coords = CITY_COORDS.get(city, {'lat': 40.0, 'lon': -8.0})
+        coords = CITY_COORDS.get(city_norm, {'lat': 40.0, 'lon': -8.0})
 
         # Get REAL weather from ERA5
         try:
@@ -152,7 +231,6 @@ def train_model():
             wind_speed = float(weather.iloc[0]['wind_speed'])
             precipitation = float(weather.iloc[0]['precipitation'])
         except KeyError:
-            # Try with city name as-is
             try:
                 weather = df_weather[
                     (df_weather['city'] == city) &
@@ -165,12 +243,15 @@ def train_model():
                     wind_speed = float(weather.iloc[0]['wind_speed'])
                     precipitation = float(weather.iloc[0]['precipitation'])
                 else:
-                    continue  # Skip if no data
-            except:
-                continue  # Skip if no data
+                    skipped += 1
+                    continue
+            except Exception:
+                skipped += 1
+                continue
 
-        # NDVI (based on seasonal patterns)
-        ndvi = generate_ndvi(month, coords['lat'], area)
+        # NDVI: try real cache first, fall back to seasonal estimate
+        # NO area-based adjustment = no data leakage
+        ndvi = generate_ndvi(month, coords['lat'], city_norm)
 
         feature = [
             temperature,
@@ -185,11 +266,13 @@ def train_model():
 
         features.append(feature)
         labels.append(create_label(area))
+        matched += 1
 
     X = np.array(features)
     y = np.array(labels)
 
-    print(f"\n[DATA] Final dataset: {X.shape[0]} samples, {X.shape[1]} features")
+    print(f"\n[DATA] Matched: {matched}, Skipped: {skipped}")
+    print(f"       Final dataset: {X.shape[0]} samples, {X.shape[1]} features")
     print(f"       Class distribution: Baixo={sum(y==0)}, Medio={sum(y==1)}, Alto={sum(y==2)}")
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -211,9 +294,19 @@ def train_model():
     y_pred = rf.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
 
-    print(f"\n[RESULTS] Accuracy: {accuracy * 100:.1f}%")
-    print("\n[REPORT] Classification Report:")
+    print(f"\n[RESULTS] Overall Accuracy: {accuracy * 100:.1f}%")
+    print("\n[CLASSIFICATION REPORT]:")
     print(classification_report(y_test, y_pred, target_names=['Baixo', 'Medio', 'Alto']))
+
+    print("\n[CONFUSION MATRIX]:")
+    cm = confusion_matrix(y_test, y_pred)
+    print("              Previsto:")
+    print("              Baixo  Medio  Alto")
+    for i, row_name in enumerate(['Baixo', 'Medio', 'Alto']):
+        print(f"   Real {row_name:6s}", end="")
+        for val in cm[i]:
+            print(f" {val:5d}", end="")
+        print()
 
     print("\n[IMPORTANCE] Feature Importance:")
     feature_names = ['temperature', 'humidity', 'wind_speed', 'precipitation', 'month', 'lat', 'lon', 'ndvi']
@@ -221,15 +314,36 @@ def train_model():
         marker = " <<<" if imp == max(rf.feature_importances_) else ""
         print(f"   {name}: {imp:.3f}{marker}")
 
+    # Calculate per-class metrics
+    from sklearn.metrics import precision_recall_fscore_support
+    per_class = precision_recall_fscore_support(y_test, y_pred, labels=[0, 1, 2])
+    class_metrics = {}
+    for i, class_name in enumerate(['baixo', 'medio', 'alto']):
+        class_metrics[class_name] = {
+            'precision': round(per_class[0][i], 4),
+            'recall': round(per_class[1][i], 4),
+            'f1_score': round(per_class[2][i], 4),
+            'support': int(per_class[3][i])
+        }
+
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
     joblib.dump(rf, MODEL_PATH)
     print(f"\n[MODEL] Saved to: {MODEL_PATH}")
+
+    # Count real NDVI usage
+    ndvi_cache = load_ndvi_cache()
+    ndvi_real_count = len(ndvi_cache)
+    ndvi_estimated_cities = len(CITY_COORDS) - ndvi_real_count
 
     metadata = {
         'accuracy': round(accuracy, 4),
         'n_trees': 500,
         'n_features': 8,
         'feature_names': feature_names,
+        'feature_importance': {
+            name: round(float(imp), 4)
+            for name, imp in zip(feature_names, rf.feature_importances_)
+        },
         'training_date': datetime.now().isoformat(),
         'n_samples': len(X),
         'class_distribution': {
@@ -237,19 +351,34 @@ def train_model():
             'medio': int(sum(y==1)),
             'alto': int(sum(y==2))
         },
-        'weather_source': 'ERA5 (ECMWF reanalysis) - 100% REAL',
-        'fire_source': 'ICNF (Portugal 2000-2023) - 100% REAL',
-        'ndvi_included': True
+        'class_metrics': class_metrics,
+        'weather_source': 'ERA5 (ECMWF reanalysis) - 100% real',
+        'fire_source': 'ICNF (Portugal 2000-2023) - 100% real',
+        'ndvi_source': {
+            'description': 'Copernicus Sentinel-2 (cached) when available, seasonal estimation otherwise',
+            'cached_real_cities': ndvi_real_count,
+            'estimated_cities': ndvi_estimated_cities,
+            'no_data_leakage': True
+        },
+        'thresholds': {
+            'baixo': 'area < 100 ha',
+            'medio': '100 ha <= area <= 1000 ha',
+            'alto': 'area > 1000 ha'
+        }
     }
     with open(META_PATH, 'w') as f:
         json.dump(metadata, f, indent=2)
     print(f"[META] Saved to: {META_PATH}")
 
     print("\n" + "=" * 70)
-    print("TRAINING COMPLETE WITH 100% REAL DATA!")
+    print("TRAINING COMPLETE!")
+    print("=" * 70)
+    print(f"Data: ERA5 (real) + ICNF (real) + NDVI (Copernicus/seasonal)")
+    print(f"Overall Accuracy: {accuracy * 100:.1f}%")
     print("=" * 70)
 
     return rf, accuracy
+
 
 if __name__ == '__main__':
     train_model()
