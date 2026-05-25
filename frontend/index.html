@@ -170,8 +170,123 @@
             </div>
         </div>
     </div>
+
+    <!-- Card 4: Modelo AI -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 6l2 4 4 1-5-3-3-4z"/>
+                </svg>
+            </div>
+            <h3>Modelo AI</h3>
+            <span class="card-subtitle">91.4% Accuracy</span>
+        </div>
+        <div class="card-body" id="model-content">
+            <div class="model-stats">
+                <div class="model-stat">
+                    <span class="model-stat-value">500</span>
+                    <span class="model-stat-label">Árvores</span>
+                </div>
+                <div class="model-stat">
+                    <span class="model-stat-value">91.4%</span>
+                    <span class="model-stat-label">Accuracy</span>
+                </div>
+                <div class="model-stat">
+                    <span class="model-stat-value">32%</span>
+                    <span class="model-stat-label">NDVI (Mais importante)</span>
+                </div>
+            </div>
+            <div class="feature-importance">
+                <h4>Importância das Features</h4>
+                <div class="feature-bar">
+                    <span class="feature-name">NDVI</span>
+                    <div class="bar-container"><div class="bar" style="width:31.9%"></div></div>
+                    <span class="feature-value">32%</span>
+                </div>
+                <div class="feature-bar">
+                    <span class="feature-name">Temp</span>
+                    <div class="bar-container"><div class="bar" style="width:17%"></div></div>
+                    <span class="feature-value">17%</span>
+                </div>
+                <div class="feature-bar">
+                    <span class="feature-name">Mês</span>
+                    <div class="bar-container"><div class="bar" style="width:12.2%"></div></div>
+                    <span class="feature-value">12%</span>
+                </div>
+                <div class="feature-bar">
+                    <span class="feature-name">Lat</span>
+                    <div class="bar-container"><div class="bar" style="width:12.1%"></div></div>
+                    <span class="feature-value">12%</span>
+                </div>
+                <div class="feature-bar">
+                    <span class="feature-name">Lon</span>
+                    <div class="bar-container"><div class="bar" style="width:9.2%"></div></div>
+                    <span class="feature-value">9%</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
+</div>
+
+<!-- ===== HOW IT WORKS ===== -->
+<section class="how-it-works-section">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+            </div>
+            <h3>Como Funciona</h3>
+            <span class="card-subtitle">Pipeline de IA</span>
+        </div>
+        <div class="card-body">
+            <div class="pipeline-steps">
+                <div class="step">
+                    <div class="step-icon">1</div>
+                    <div class="step-content">
+                        <h4>Recolha de Dados</h4>
+                        <p>NASA FIRMS (fogos), ERA5 (meteorologia), ICNF (histórico), Copernicus (NDVI).</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-icon">2</div>
+                    <div class="step-content">
+                        <h4>Processamento</h4>
+                        <p>Cálculo de NDVI, 8 features, normalização de dados históricos reais.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-icon">3</div>
+                    <div class="step-content">
+                        <h4>Treino do Modelo</h4>
+                        <p>Random Forest com 500 árvores, 5184 registos reais (2000-2023).</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-icon">4</div>
+                    <div class="step-content">
+                        <h4>Previsão em Tempo Real</h4>
+                        <p>IA prediz risco para 16 cidades com 91.4% de accuracy.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-icon">5</div>
+                    <div class="step-content">
+                        <h4>Visualização</h4>
+                        <p>Dashboard interativo com mapa, gráficos e alertas visuais.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
 
 <!-- ===== GRÁFICO HISTÓRICO ===== -->
 <div class="chart-section">

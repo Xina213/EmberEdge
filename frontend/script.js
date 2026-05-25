@@ -63,6 +63,37 @@ function initMap() {
         maxZoom: 18,
         minZoom: 6
     }).addTo(map);
+
+    // Map Legend
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function() {
+        const div = L.DomUtil.create('div', 'map-legend');
+        div.innerHTML = `
+            <h4>Lenda do Mapa</h4>
+            <div class="legend-item">
+                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#FF0000;margin-right:8px;"></span>
+                <span>Fogo Ativo (>800K)</span>
+            </div>
+            <div class="legend-item">
+                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#FF6600;margin-right:8px;"></span>
+                <span>Fogo Ativo (600-800K)</span>
+            </div>
+            <div class="legend-item">
+                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#FFA500;margin-right:8px;"></span>
+                <span>Fogo Ativo (<600K)</span>
+            </div>
+            <div class="legend-item">
+                <span style="display:inline-block;width:100px;height:10px;background:linear-gradient(to right,#0000ff,#00ff00,#ffff00,#ff0000);margin-right:8px;"></span>
+                <span>Heatmap</span>
+            </div>
+            <div class="legend-item">
+                <span style="color:#EF4444;margin-right:4px;">■</span><span style="color:#F59E0B;margin-right:4px;">■</span><span style="color:#10B981;">■</span>
+                <span style="margin-left:8px;">Alto/Médio/Baixo</span>
+            </div>
+        `;
+        return div;
+    };
+    legend.addTo(map);
     
     console.log('✅ Mapa criado!');
 }
@@ -512,7 +543,7 @@ async function displayRiskCities(weatherData) {
                         ${ICONS.temp}${city.temperature}°C |
                         ${ICONS.humidity}${city.humidity}% humidade |
                         ${ICONS.target}${city.confidence?.toFixed(0)}% confiança
-                        ${city.ndvi ? `| NDVI: ${city.ndvi.toFixed(2)}` : ''}
+                        ${city.ndvi ? `| NDVI: <span style="color:${city.ndvi > 0.6 ? '#10B981' : (city.ndvi > 0.3 ? '#F59E0B' : '#EF4444')}">${city.ndvi.toFixed(2)}</span>` : ''}
                     </small>
                 </div>
             </li>
@@ -539,15 +570,23 @@ function displayFiresOnMap(firesData) {
     console.log(`🗺️ A adicionar ${fires.length} marcadores ao mapa...`);
 
     fires.forEach(fire => {
+        // Dynamic radius based on burned area
+        const area = parseFloat(fire.area_hectares) || 10;
+        const radius = Math.min(25, Math.max(8, Math.sqrt(area) * 2));
+
+        // Color based on temperature (hotter = brighter red)
+        const temp = parseFloat(fire.temperature) || 600;
+        const color = temp > 800 ? '#FF0000' : (temp > 600 ? '#FF4400' : '#FF6600');
+
         const marker = L.circleMarker(
             [parseFloat(fire.latitude), parseFloat(fire.longitude)],
             {
-                radius: 15,
-                fillColor: '#FF0000',
+                radius: radius,
+                fillColor: color,
                 color: '#FFA500',
-                weight: 4,
+                weight: 3,
                 opacity: 1,
-                fillOpacity: 0.9
+                fillOpacity: 0.8
             }
         ).addTo(map);
         
