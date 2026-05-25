@@ -380,14 +380,20 @@ async function displayInvisibleMarkers(weatherData) {
 
 // ===== FETCH API =====
 async function fetchAPI(endpoint) {
-    const response = await fetch(`${API_BASE}${endpoint}`);
-    
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${endpoint}`);
+    try {
+        const response = await fetch(`${API_BASE}${endpoint}`);
+        
+        if (!response.ok) {
+            console.error(`❌ API Error: ${response.status} at ${endpoint}`);
+            throw new Error(`HTTP ${response.status}: ${endpoint}`);
+        }
+        
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error(`❌ Fetch failed for ${endpoint}:`, error);
+        throw error;
     }
-    
-    const data = await response.json();
-    return data;
 }
 
 // ===== ATUALIZAR STATUS =====
@@ -783,28 +789,30 @@ function setupEventListeners() {
     if (fullscreenBtn) {
         fullscreenBtn.addEventListener('click', () => {
             const mapContainer = document.querySelector('.map-container');
-            
+
             if (!mapContainer) return;
-            
+
             if (mapContainer.classList.contains('fullscreen')) {
                 mapContainer.classList.remove('fullscreen');
                 fullscreenBtn.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;">
                         <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
                     </svg>
+                    Fullscreen
                 `;
             } else {
                 mapContainer.classList.add('fullscreen');
                 fullscreenBtn.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;">
                         <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
                     </svg>
+                    Exit Fullscreen
                 `;
             }
-            
+
             setTimeout(() => {
                 if (map) map.invalidateSize();
-            }, 100);
+            }, 300);
         });
     }
     

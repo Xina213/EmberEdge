@@ -319,8 +319,8 @@ python train_model.py
 
 | Nome | Função | Contribuições |
 |------|--------|-------------|
-| Gonçalo Oliveira | Desenvolvimento Full-Stack + ML | NASA FIRMS, ICNF, Render deploy, Testes |
-| Gabriel Ferreira | [Função] | Copérnico CDS, Testes, Validação |
+| Gonçalo Oliveira | Desenvolvimento Full-Stack + ML | Código completo, NASA FIRMS, ICNF, ERA5, NDVI, Render deploy, Testes |
+| Gabriel Ferreira | Pesquisa & Alocação de Recursos | Copernicus CDS, Pesquisa científica, Testes, Validação |
 | Claude Opus 4.7 | AI Assistant | ERA5, NDVI, ML, Backend, Frontend |
 
 **Escola**: Escola Secundária D. Maria II, Braga, Portugal
