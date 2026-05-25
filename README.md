@@ -327,6 +327,15 @@ python train_model.py
 
 ---
 
+## 📧 Contactos
+
+| Nome | Email Pessoal | Email Institucional |
+|------|-----------------|----------------------|
+| Gonçalo Oliveira | goncaloxina213@gmail.com | 41489@aedonamaria.pt |
+| Gabriel Ferreira | - | 41482@aedonamaria.pt |
+
+---
+
 ## 📚 Referências
 
 1. Wildfires as an ecosystem service. *Frontiers in Ecology*, 17(5), 289–295 (2019). https://doi.org/10.1002/fee.2044

@@ -19,7 +19,7 @@ CITY_ALIASES = {
     'Guarda': 'Guarda', 'Beja': 'Beja', 'Viseu': 'Viseu',
     'Aveiro': 'Aveiro', 'Setubal': 'Setubal', 'Leiria': 'Leiria',
     'Santarem': 'Santarem', 'Castelo Branco': 'Castelo Branco',
-    'Vila Real': 'Vila Real', 'Braganca': 'Braganca',
+    'Vila Real': 'Vila Real', 'Braganca': 'Braganca', 'Bragança': 'Braganca',
     'Viana do Castelo': 'Viana do Castelo', 'Portalegre': 'Portalegre',
     'Funchal': 'Funchal', 'Ponta Delgada': 'Ponta Delgada',
     'Cascais': 'Cascais', 'Sintra': 'Sintra',
@@ -32,10 +32,13 @@ CITY_ALIASES = {
 }
 
 def normalize_city(name):
-    """Normalize city name (English to Portuguese, lowercase to title case)"""
+    """Normalize city name (remove accents, English to Portuguese, lowercase to title case)"""
     if not name:
         return name
+    import unicodedata
     name = name.strip().title()
+    # Remove accents (e.g., Bragança -> Braganca)
+    name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('utf-8')
     return CITY_ALIASES.get(name, name)
 
 # City coordinates

@@ -4,7 +4,7 @@
 
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
-import os, csv, threading, time, json, random
+import os, csv, threading, time, json, random, unicodedata
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from predict_risk import RiskPredictor
@@ -163,7 +163,9 @@ def get_forecast():
 def get_risk_city(city):
     try:
         current_weather = load_csv(WEATHER_FILE)
-        wd = next((w for w in current_weather if w['city'].lower()==city.lower()), None)
+        # Normalize accents for comparison (e.g., Bragança -> Braganca)
+        city_norm = unicodedata.normalize('NFKD', city).encode('ASCII', 'ignore').decode('utf-8').lower()
+        wd = next((w for w in current_weather if unicodedata.normalize('NFKD', w['city']).encode('ASCII', 'ignore').decode('utf-8').lower()==city_norm), None)
         if not wd:
             return jsonify({'error':f'City {city} not found','available_cities':[w['city'] for w in weather_list]}), 404
         result = ai_integration.predict(

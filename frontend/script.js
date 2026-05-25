@@ -31,6 +31,7 @@ const CITY_NAME_MAP = {
     'Castelo Branco': 'Castelo Branco',
     'Vila Real': 'Vila Real',
     'Viana do Castelo': 'Viana do Castelo',
+    'Bragança': 'Braganca',
     'Braganca': 'Braganca',
     'Evora': 'Evora',
     'Leiria': 'Leiria',
@@ -225,9 +226,9 @@ async function addDistrictLayer(weatherData) {
                 
                 for (let city of Object.keys(cities)) {
     const mappedName = CITY_NAME_MAP[districtName] || districtName;
-    if (mappedName.toLowerCase() === city.toLowerCase() ||
-        city.toLowerCase().includes(districtName.toLowerCase()) ||
-        districtName.toLowerCase().includes(city.toLowerCase())) {
+    const normMapped = mappedName.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const normCity = city.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    if (normMapped === normCity) {
         cityData = city;
         cityWeather = cities[city];
         break;
