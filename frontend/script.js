@@ -440,10 +440,6 @@ function updateStats(stats) {
             <span>${ICONS.alert}Cidades em Risco</span>
             <strong style="color: #EF4444;">${data.cities_at_risk}</strong>
         </div>
-        <div class="stat-row">
-            <span>${ICONS.ai}AI Accuracy</span>
-            <strong style="color: #10B981;">${data.model_accuracy}%</strong>
-        </div>
     `;
     
     document.getElementById('stats-content').innerHTML = html;

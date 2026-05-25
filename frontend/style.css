@@ -43,6 +43,44 @@
     
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+/* ===== LIGHT MODE ===== */
+body.light-mode {
+    --color-bg: #F8FAFC;
+    --color-bg-secondary: #FFFFFF;
+    --color-bg-card: #FFFFFF;
+    --color-card: #FFFFFF;
+    --color-border: #E2E8F0;
+    --color-border-accent: #FF6B35;
+    --color-text: #1E293B;
+    --color-text-primary: #1E293B;
+    --color-text-secondary: #64748B;
+    --color-text-muted: #94A3B8;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.15);
+    --shadow-glow: 0 0 20px rgba(255, 107, 53, 0.2);
+}
+
+body.light-mode header {
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid #E2E8F0;
+}
+
+body.light-mode .card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+}
+
+body.light-mode .map-legend {
+    background: rgba(255, 255, 255, 0.95);
+    color: #1E293B;
+}
+
+body.light-mode .footer {
+    background: #F1F5F9;
+    border-top: 1px solid #E2E8F0;
+}
+
 
 /* ===== RESET ===== */
 * {
@@ -62,6 +100,7 @@ body {
     line-height: 1.6;
     min-height: 100vh;
     overflow-x: hidden;
+    transition: background 0.3s ease, color 0.3s ease;
 }
 
 /* ===== HEADER CORRIGIDO - SUBSTITUI DO INÍCIO ATÉ O CONTAINER ===== */
@@ -264,7 +303,7 @@ header {
 .container {
     max-width: 1600px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 1.5rem;
 }
 
 /* ===== SECTION HEADER ===== */
@@ -831,6 +870,50 @@ header {
     border-top: 1px solid rgba(255,255,255,0.1);
     font-size: 0.8rem !important;
 }
+.footer-desc {
+    color: var(--color-text-primary);
+    font-size: 0.9rem;
+    margin: 8px 0;
+    line-height: 1.4;
+}
+
+.footer-copy {
+    color: var(--color-text-secondary);
+    font-size: 0.8rem;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.footer-link {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-top: 10px;
+    transition: var(--transition);
+}
+
+.footer-link:hover {
+    color: var(--color-primary-light);
+    transform: translateX(3px);
+}
+
+.footer-bottom {
+    text-align: center;
+    padding: 20px 20px 0;
+    margin-top: 30px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+
+body.light-mode .footer-bottom {
+    border-top-color: #E2E8F0;
+}
+
 
 .data-sources,
 .tech-stack {
