@@ -161,20 +161,15 @@ function applyLanguage(lang) {
     currentLang = lang;
     localStorage.setItem('emberedge-lang', lang);
 
-    // Update data-i18n elements
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
         const text = TRANSLATIONS[lang] && TRANSLATIONS[lang][key];
-        if (text) {
-            el.textContent = text;
-        }
+        if (text) el.textContent = text;
     });
 
-    // Update lang toggle label
     const langLabel = document.getElementById('lang-label');
     if (langLabel) langLabel.textContent = lang === 'pt' ? 'PT' : 'EN';
 
-    // Update title attributes
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) refreshBtn.title = TRANSLATIONS[lang]['refresh-title'];
     const themeToggle = document.getElementById('theme-toggle');
@@ -184,7 +179,6 @@ function applyLanguage(lang) {
     const scienceToggle = document.getElementById('science-toggle');
     if (scienceToggle) scienceToggle.title = TRANSLATIONS[lang]['toggle-science'];
 
-    // Update footer school/academic text
     const schoolEl = document.querySelector('.school-name');
     if (schoolEl) schoolEl.textContent = TRANSLATIONS[lang]['school'];
     const academicEl = document.querySelector('.footer-copy');
@@ -214,23 +208,15 @@ function toggleLanguage() {
 function initScrollAnimations() {
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('visible');
-            }
+            if (entry.isIntersecting) entry.target.classList.add('visible');
         });
-    }, {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
-    });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
 
-    // Observe all animate-in elements
     document.querySelectorAll('.animate-in').forEach(el => observer.observe(el));
 
-    // Observe chart container
     const chartContainer = document.querySelector('.chart-container');
     if (chartContainer) observer.observe(chartContainer);
 
-    // Observe footer
     const footer = document.querySelector('.dashboard-footer');
     if (footer) observer.observe(footer);
 }
@@ -258,7 +244,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initScrollAnimations();
 
     // Auto-refresh a cada 5 minutos
-    setInterval(loadAllData, 5 * 60 * 1000);
+    setInterval(() => {
+        if (!isLoading) loadAllData(); // 🔧 só dispara se não houver carga em curso
+    }, 5 * 60 * 1000);
 
     console.log('✅ Dashboard pronto!');
 });
@@ -275,7 +263,6 @@ function initMap() {
         minZoom: 6
     }).addTo(map);
 
-    // Map Legend
     const legend = L.control({ position: 'bottomright' });
     legend.onAdd = function() {
         const div = L.DomUtil.create('div', 'map-legend');
@@ -309,119 +296,145 @@ function initMap() {
     console.log('✅ Mapa criado!');
 }
 
-// ===== CARREGAR TODOS OS DADOS (UMA CHAMADA) =====
+// ===== CARREGAR TODOS OS DADOS =====
+// 🔧 FIX 1: flag para evitar chamadas simultâneas
+let isLoading = false;
+
 async function loadAllData() {
+    if (isLoading) {
+        console.log('⏳ loadAllData já em execução, ignorando...');
+        return;
+    }
+    isLoading = true;
+
     console.log('📡 Carregando dados...');
     updateStatus('Atualizando dados...', false);
 
-    console.log('📡 Fetching all APIs...');
+    // 🔧 FIX 2: fallbackTimer aumentado para cobrir o pior caso
+    // fetchWithRetry('/risk/all', 2, 4000, 20000) = até ~44s no pior caso
+    const fallbackTimer = setTimeout(() => {
+        console.warn('⏱️ Fallback timer ativado — forçando esconder loading screen');
+        hideLoadingScreen();
+        isLoading = false;
+    }, 50000);
 
-    // Fetch each API individually so one failure doesn't break the whole dashboard
-    const [stats, fires, weather, history, riskAll, modelInfo] = await Promise.all([
-        fetchAPI('/stats').then(d => { console.log('✅ /stats loaded'); return d; }).catch(e => { console.error('❌ /stats failed:', e); return null; }),
-        fetchAPI('/fires').then(d => { console.log('✅ /fires loaded'); return d; }).catch(e => { console.error('❌ /fires failed:', e); return null; }),
-        fetchAPI('/weather').then(d => { console.log('✅ /weather loaded'); return d; }).catch(e => { console.error('❌ /weather failed:', e); return null; }),
-        fetchAPI('/history').then(d => { console.log('✅ /history loaded'); return d; }).catch(e => { console.error('❌ /history failed:', e); return null; }),
-        fetchWithRetry('/risk/all', 2, 4000, 20000).then(d => { console.log('✅ /risk/all loaded'); return d; }).catch(e => { console.error('❌ /risk/all failed:', e); return null; }),
-        fetchWithRetry('/model/info', 2, 4000, 15000).then(d => { console.log('✅ /model/info loaded'); return d; }).catch(e => { console.error('❌ /model/info failed:', e); return null; })
-    ]);
+    try {
+        console.log('📡 Fetching all APIs...');
 
-    // Graceful degradation: only update sections that loaded successfully
-    let loadedCount = 0;
-    let timestamps = {};
+        const [stats, fires, weather, history, riskAll, modelInfo] = await Promise.all([
+            fetchAPI('/stats').catch(e => { console.error('❌ /stats:', e); return null; }),
+            fetchAPI('/fires').catch(e => { console.error('❌ /fires:', e); return null; }),
+            fetchAPI('/weather').catch(e => { console.error('❌ /weather:', e); return null; }),
+            fetchAPI('/history').catch(e => { console.error('❌ /history:', e); return null; }),
+            fetchWithRetry('/risk/all',   2, 4000, 20000).catch(e => { console.error('❌ /risk/all:', e); return null; }),
+            fetchWithRetry('/model/info', 2, 4000, 15000).catch(e => { console.error('❌ /model/info:', e); return null; })
+        ]);
 
-    if (stats && stats.status === 'success') {
-        updateStats(stats);
-        timestamps.stats = stats.timestamp || stats.data?.last_update;
-        document.getElementById('stats-content').closest('.card').classList.remove('card-offline');
-        loadedCount++;
-    } else {
-        document.getElementById('stats-content').closest('.card').classList.add('card-offline');
-    }
-    if (fires && fires.status === 'success') {
-        displayFires(fires);
-        displayFiresOnMap(fires);
-        timestamps.fires = fires.timestamp;
-        document.getElementById('fires-content').closest('.card').classList.remove('card-offline');
-        loadedCount++;
-    } else {
-        document.getElementById('fires-content').closest('.card').classList.add('card-offline');
-    }
-    if (weather && weather.status === 'success') {
-        await addDistrictLayer(weather);
-        timestamps.weather = weather.timestamp;
-        loadedCount++;
-    }
-    if (riskAll && riskAll.status === 'success') {
-        displayRiskCities(riskAll, weather || { data: {} });
-        checkAlerts(riskAll);
-        displayHeatmap(riskAll);
-        timestamps.risk = riskAll.timestamp;
-        document.getElementById('risk-cities-content').closest('.card').classList.remove('card-offline');
-        loadedCount++;
-    } else {
-        // Show loading state instead of aggressive offline overlay
-        const riskContent = document.getElementById('risk-cities-content');
-        if (!riskContent.querySelector('.risk-retry-msg')) {
-            riskContent.innerHTML = `
-                <div class="risk-retry-msg" style="text-align:center;padding:1.5rem;color:var(--color-text-secondary);">
-                    <div style="margin-bottom:8px;font-size:0.9rem;">A carregar dados de risco...</div>
-                    <div style="width:24px;height:24px;border:3px solid var(--color-border);border-top-color:var(--color-accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto;"></div>
-                </div>`;
+        // 🔧 FIX 3: clearTimeout logo após Promise.all resolver (com ou sem erros)
+        clearTimeout(fallbackTimer);
+
+        let loadedCount = 0;
+        let timestamps = {};
+
+        if (stats && stats.status === 'success') {
+            updateStats(stats);
+            timestamps.stats = stats.timestamp || stats.data?.last_update;
+            document.getElementById('stats-content').closest('.card').classList.remove('card-offline');
+            loadedCount++;
+        } else {
+            document.getElementById('stats-content').closest('.card').classList.add('card-offline');
         }
-        // Background retry: try again after a delay (Render wake-up takes time)
-        const weatherForRetry = weather || { data: {} };
-        (async function retryRisk() {
-            const retryResult = await fetchWithRetry('/risk/all', 2, 5000, 20000);
-            if (retryResult && retryResult.status === 'success') {
-                displayRiskCities(retryResult, weatherForRetry);
-                checkAlerts(retryResult);
-                displayHeatmap(retryResult);
-                document.getElementById('risk-cities-content').closest('.card').classList.remove('card-offline');
-            } else {
-                const riskContent = document.getElementById('risk-cities-content');
-                riskContent.innerHTML = '<p style="text-align:center;color:var(--color-text-secondary);padding:1rem;">Dados de risco temporariamente indisponiveis</p>';
+
+        if (fires && fires.status === 'success') {
+            displayFires(fires);
+            displayFiresOnMap(fires);
+            timestamps.fires = fires.timestamp;
+            document.getElementById('fires-content').closest('.card').classList.remove('card-offline');
+            loadedCount++;
+        } else {
+            document.getElementById('fires-content').closest('.card').classList.add('card-offline');
+        }
+
+        if (weather && weather.status === 'success') {
+            await addDistrictLayer(weather);
+            timestamps.weather = weather.timestamp;
+            loadedCount++;
+        }
+
+        if (riskAll && riskAll.status === 'success') {
+            displayRiskCities(riskAll, weather || { data: {} });
+            checkAlerts(riskAll);
+            displayHeatmap(riskAll);
+            timestamps.risk = riskAll.timestamp;
+            document.getElementById('risk-cities-content').closest('.card').classList.remove('card-offline');
+            loadedCount++;
+        } else {
+            const riskContent = document.getElementById('risk-cities-content');
+            if (!riskContent.querySelector('.risk-retry-msg')) {
+                riskContent.innerHTML = `
+                    <div class="risk-retry-msg" style="text-align:center;padding:1.5rem;color:var(--color-text-secondary);">
+                        <div style="margin-bottom:8px;font-size:0.9rem;">A carregar dados de risco...</div>
+                        <div style="width:24px;height:24px;border:3px solid var(--color-border);border-top-color:var(--color-accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto;"></div>
+                    </div>`;
             }
-        })();
-    }
-    if (history && Object.keys(history).length > 0) {
-        plotHistory(history);
-        loadedCount++;
-    }
-    if (modelInfo && modelInfo.status === 'success' && modelInfo.data?.confusion_matrix) {
-        renderModelScience(modelInfo.data);
-        loadedCount++;
-    } else {
-        // Science section remains hidden until build completes with real data
-        if (modelInfo && modelInfo.status === 'success') {
-            console.log('⏳ Model metadata loading (no confusion matrix yet)');
+            // 🔧 FIX: background retry com .then() limpo, não bloqueia o fluxo principal
+            const weatherForRetry = weather || { data: {} };
+            fetchWithRetry('/risk/all', 2, 5000, 20000).then(retryResult => {
+                if (retryResult && retryResult.status === 'success') {
+                    displayRiskCities(retryResult, weatherForRetry);
+                    checkAlerts(retryResult);
+                    displayHeatmap(retryResult);
+                    document.getElementById('risk-cities-content').closest('.card').classList.remove('card-offline');
+                } else {
+                    document.getElementById('risk-cities-content').innerHTML =
+                        '<p style="text-align:center;color:var(--color-text-secondary);padding:1rem;">Dados de risco temporariamente indisponíveis</p>';
+                }
+            });
         }
-        // Retry model info in background — build may still be deploying
-        (async function retryModelInfo() {
-            const retryResult = await fetchWithRetry('/model/info', 4, 5000, 15000);
-            if (retryResult && retryResult.status === 'success' && retryResult.data?.confusion_matrix) {
-                renderModelScience(retryResult.data);
+
+        if (history && Object.keys(history).length > 0) {
+            plotHistory(history);
+            loadedCount++;
+        }
+
+        if (modelInfo && modelInfo.status === 'success' && modelInfo.data?.confusion_matrix) {
+            renderModelScience(modelInfo.data);
+            loadedCount++;
+        } else {
+            if (modelInfo && modelInfo.status === 'success') {
+                console.log('⏳ Model metadata loading (no confusion matrix yet)');
             }
-        })();
-    }
-
-    // Show per-source timestamps
-    renderSourceTimestamps(timestamps);
-
-    if (loadedCount > 0) {
-        updateStatus('Dados atualizados', true);
-        updateLastUpdate();
-
-        // Hide loading screen with fade-out
-        const loadingScreen = document.getElementById('loading-screen');
-        if (loadingScreen) {
-            loadingScreen.classList.add('hidden');
-            setTimeout(() => {
-                loadingScreen.style.display = 'none';
-            }, 600);
+            // 🔧 FIX: background retry com .then() limpo
+            fetchWithRetry('/model/info', 4, 5000, 15000).then(retryResult => {
+                if (retryResult && retryResult.status === 'success' && retryResult.data?.confusion_matrix) {
+                    renderModelScience(retryResult.data);
+                }
+            });
         }
-    } else {
-        updateStatus('Erro ao carregar', false);
+
+        renderSourceTimestamps(timestamps);
+        updateStatus(loadedCount > 0 ? 'Dados atualizados' : 'Erro ao carregar', loadedCount > 0);
+        if (loadedCount > 0) updateLastUpdate();
+
+    } catch (e) {
+        console.error('[FATAL] loadAllData error:', e);
+        clearTimeout(fallbackTimer);
+        updateStatus('Erro de conexão', false);
+    } finally {
+        // 🔧 FIX 4: SEMPRE esconde o loading e liberta o lock, mesmo em erro total
+        hideLoadingScreen();
+        isLoading = false;
+    }
+}
+
+// ===== ESCONDER LOADING SCREEN =====
+function hideLoadingScreen() {
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+        loadingScreen.classList.add('hidden');
+        setTimeout(() => {
+            loadingScreen.style.display = 'none';
+        }, 600);
     }
 }
 
@@ -457,20 +470,14 @@ let heatLayer = null;
 function displayHeatmap(riskAll) {
     if (!riskAll || !riskAll.data || !map) return;
 
-    if (heatLayer) {
-        map.removeLayer(heatLayer);
-    }
+    if (heatLayer) map.removeLayer(heatLayer);
 
     const heatPoints = [];
 
     for (const [city, data] of Object.entries(riskAll.data)) {
         if (data.coordinates && data.risk_value !== undefined) {
-            const lat = data.coordinates.lat;
-            const lon = data.coordinates.lon;
-            const risk = data.risk_value;
-
-            const intensity = risk === 0 ? 0.3 : (risk === 1 ? 0.6 : 1.0);
-            heatPoints.push([lat, lon, intensity]);
+            const intensity = data.risk_value === 0 ? 0.3 : (data.risk_value === 1 ? 0.6 : 1.0);
+            heatPoints.push([data.coordinates.lat, data.coordinates.lon, intensity]);
         }
     }
 
@@ -479,11 +486,7 @@ function displayHeatmap(riskAll) {
             radius: 35,
             blur: 20,
             maxZoom: 10,
-            gradient: {
-                0.3: '#10B981',
-                0.6: '#F59E0B',
-                1.0: '#EF4444'
-            }
+            gradient: { 0.3: '#10B981', 0.6: '#F59E0B', 1.0: '#EF4444' }
         }).addTo(map);
         console.log(`🔥 Heatmap adicionado: ${heatPoints.length} pontos`);
     }
@@ -523,9 +526,7 @@ async function addDistrictLayer(weatherData) {
 
     try {
         const geoData = await fetchGeoJSON();
-        if (!geoData) {
-            throw new Error('All GeoJSON sources failed');
-        }
+        if (!geoData) throw new Error('All GeoJSON sources failed');
 
         const cities = weatherData.data;
 
@@ -554,7 +555,7 @@ async function addDistrictLayer(weatherData) {
                     }
                 }
 
-                                if (cityData && cityWeather) {
+                if (cityData && cityWeather) {
                     layer._hoverReqId = 0;
 
                     layer.on('mouseover', function(e) {
@@ -635,7 +636,6 @@ async function addDistrictLayer(weatherData) {
                     layer.on('mouseout', function() {
                         this._hoverReqId++;
                         clearTimeout(this._hoverTimer);
-
                         this.setStyle({
                             fillColor: 'transparent',
                             fillOpacity: 0,
@@ -692,24 +692,11 @@ async function displayInvisibleMarkers(weatherData) {
             }).addTo(map);
 
             marker.on('mouseover', function() {
-                this.setStyle({
-                    fillColor: color,
-                    color: '#fff',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.8,
-                    radius: 12
-                });
+                this.setStyle({ fillColor: color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.8, radius: 12 });
             });
 
             marker.on('mouseout', function() {
-                this.setStyle({
-                    fillColor: 'transparent',
-                    color: 'transparent',
-                    weight: 0,
-                    opacity: 0,
-                    fillOpacity: 0
-                });
+                this.setStyle({ fillColor: 'transparent', color: 'transparent', weight: 0, opacity: 0, fillOpacity: 0 });
             });
 
             marker.bindPopup(`
@@ -755,9 +742,7 @@ async function fetchWithRetry(endpoint, retries = 3, delay = 4000, timeoutMs = 2
     for (let i = 0; i < retries; i++) {
         const result = await fetchAPI(endpoint, timeoutMs).catch(e => null);
         if (result && result.status === 'success') return result;
-        if (i < retries - 1) {
-            await new Promise(r => setTimeout(r, delay));
-        }
+        if (i < retries - 1) await new Promise(r => setTimeout(r, delay));
     }
     return null;
 }
@@ -767,9 +752,7 @@ async function fetchAPI(endpoint, timeoutMs = 15000) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-        const response = await fetch(`${API_BASE}${endpoint}`, {
-            signal: controller.signal
-        });
+        const response = await fetch(`${API_BASE}${endpoint}`, { signal: controller.signal });
         clearTimeout(timeoutId);
 
         if (!response.ok) {
@@ -777,8 +760,7 @@ async function fetchAPI(endpoint, timeoutMs = 15000) {
             throw new Error(`HTTP ${response.status}: ${endpoint}`);
         }
 
-        const data = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
         if (error.name === 'AbortError') {
             console.error(`Timeout ${endpoint} (>${timeoutMs}ms)`);
@@ -792,30 +774,20 @@ async function fetchAPI(endpoint, timeoutMs = 15000) {
 // ===== ATUALIZAR STATUS =====
 function updateStatus(text, isSuccess) {
     const statusEl = document.getElementById('status-text');
+    if (!statusEl) return;
     statusEl.textContent = text;
-
-    if (isSuccess) {
-        statusEl.style.color = '#10B981';
-    } else {
-        statusEl.style.color = '#F59E0B';
-    }
+    statusEl.style.color = isSuccess ? '#10B981' : '#F59E0B';
 }
 
 function formatActiveHours(value) {
     if (!value || value === '0') return 'Tempo desconhecido';
-    if (typeof value === 'string' && value.includes('UTC')) {
-        const time = value.replace(' UTC', '');
-        return `Detetado as ${time}`;
-    }
+    if (typeof value === 'string' && value.includes('UTC')) return `Detetado as ${value.replace(' UTC', '')}`;
     return `${value}h ativo`;
 }
 
 function updateLastUpdate() {
     const now = new Date();
-    const timeStr = now.toLocaleTimeString('pt-PT', {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    const timeStr = now.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
     const el = document.getElementById('last-update-time');
     if (el) el.textContent = timeStr;
 }
@@ -828,8 +800,7 @@ function timeAgo(isoString) {
     if (diffSec < 60) return 'agora';
     if (diffSec < 3600) return `ha ${Math.floor(diffSec / 60)}min`;
     if (diffSec < 86400) return `ha ${Math.floor(diffSec / 3600)}h`;
-    const days = Math.floor(diffSec / 86400);
-    return `ha ${days}d`;
+    return `ha ${Math.floor(diffSec / 86400)}d`;
 }
 
 function renderSourceTimestamps(timestamps) {
@@ -846,18 +817,16 @@ function renderSourceTimestamps(timestamps) {
     let html = '';
     for (const src of sources) {
         const ago = timeAgo(timestamps[src.key]);
-        if (ago) {
-            html += `<span class="source-timestamp"><span class="ts-dot ${src.dot}"></span>${src.label}: ${ago}</span>`;
-        }
+        if (ago) html += `<span class="source-timestamp"><span class="ts-dot ${src.dot}"></span>${src.label}: ${ago}</span>`;
     }
     container.innerHTML = html;
 }
 
-// ===== ESTATISTICAS COM ICONES SVG =====
+// ===== ESTATISTICAS =====
 function updateStats(stats) {
     const data = stats.data;
 
-    const html = `
+    document.getElementById('stats-content').innerHTML = `
         <div class="stat-row">
             <span>${ICONS.fire}Fogos Ativos</span>
             <strong>${data.active_fires}</strong>
@@ -884,15 +853,9 @@ function updateStats(stats) {
         </div>
     `;
 
-    document.getElementById('stats-content').innerHTML = html;
-
-    // Update model accuracy display from API data
     if (data.model_accuracy) {
         const accDisplay = document.getElementById('model-accuracy-display');
-        if (accDisplay) {
-            accDisplay.textContent = data.model_accuracy.toFixed(1) + '%';
-        }
-        // Also update card subtitle
+        if (accDisplay) accDisplay.textContent = data.model_accuracy.toFixed(1) + '%';
         const accSubtitle = document.querySelector('.card-header .card-subtitle');
         if (accSubtitle && accSubtitle.textContent.includes('%')) {
             accSubtitle.textContent = data.model_accuracy.toFixed(1) + '% Precisão';
@@ -900,7 +863,7 @@ function updateStats(stats) {
     }
 }
 
-// ===== FOGOS ATIVOS COM ICONES SVG =====
+// ===== FOGOS ATIVOS =====
 function displayFires(firesData) {
     const fires = firesData.data;
 
@@ -916,7 +879,6 @@ function displayFires(firesData) {
     }
 
     let html = '<div style="max-height: 400px; overflow-y: auto;">';
-
     fires.forEach((fire, idx) => {
         html += `
             <div class="fire-item">
@@ -934,14 +896,14 @@ function displayFires(firesData) {
             </div>
         `;
     });
-
     html += '</div>';
     document.getElementById('fires-content').innerHTML = html;
 }
 
-// ===== CIDADES RISCO COM ICONES SVG (OTIMIZADO: usa /api/risk/all) =====
+// ===== CIDADES RISCO =====
+// 🔧 FIX 4: weatherData?.data || {} evita Object.keys(undefined)
 function displayRiskCities(riskAllData, weatherData) {
-    const cities = weatherData.data;
+    const cities = weatherData?.data || {};
 
     if (!riskAllData || !riskAllData.data || Object.keys(cities).length === 0) {
         document.getElementById('risk-cities-content').innerHTML =
@@ -951,7 +913,6 @@ function displayRiskCities(riskAllData, weatherData) {
 
     const riskData = riskAllData.data;
 
-    // Build array with city + weather + risk data combined
     const citiesWithRisk = [];
     for (const [city, data] of Object.entries(riskData)) {
         const weather = cities[city];
@@ -979,11 +940,9 @@ function displayRiskCities(riskAllData, weatherData) {
     }
 
     let html = '<ul class="risk-list">';
-
     topCities.forEach((city, idx) => {
         const colors = { 0: '#10B981', 1: '#F59E0B', 2: '#EF4444' };
         const riskColor = colors[city.risk_value] || '#94A3B8';
-
         const ndviColor = city.ndvi > 0.4 ? '#10B981' : (city.ndvi > 0.2 ? '#F59E0B' : '#EF4444');
         const ndviIcon = city.ndvi_source?.includes('real') ? ICONS.satellite : '';
 
@@ -991,9 +950,7 @@ function displayRiskCities(riskAllData, weatherData) {
             <li class="risk-item" style="border-left: 4px solid ${riskColor};">
                 <div class="risk-header">
                     <strong>${idx + 1}. ${city.name}</strong>
-                    <span class="risk-badge" style="background-color: ${riskColor};">
-                        ${city.risk_level}
-                    </span>
+                    <span class="risk-badge" style="background-color: ${riskColor};">${city.risk_level}</span>
                 </div>
                 <div class="risk-details">
                     <small>
@@ -1008,12 +965,11 @@ function displayRiskCities(riskAllData, weatherData) {
             </li>
         `;
     });
-
     html += '</ul>';
     document.getElementById('risk-cities-content').innerHTML = html;
 }
 
-// ===== FOGOS ATIVOS NO MAPA =====
+// ===== FOGOS NO MAPA =====
 function displayFiresOnMap(firesData) {
     const fires = firesData.data;
 
@@ -1025,25 +981,15 @@ function displayFiresOnMap(firesData) {
         return;
     }
 
-    console.log(`🗺️ A adicionar ${fires.length} marcadores ao mapa...`);
-
     fires.forEach(fire => {
         const area = parseFloat(fire.area_hectares) || 10;
         const radius = Math.min(25, Math.max(8, Math.sqrt(area) * 2));
-
         const temp = parseFloat(fire.temperature) || 600;
         const color = temp > 800 ? '#FF0000' : (temp > 600 ? '#FF4400' : '#FF6600');
 
         const marker = L.circleMarker(
             [parseFloat(fire.latitude), parseFloat(fire.longitude)],
-            {
-                radius: radius,
-                fillColor: color,
-                color: '#FFA500',
-                weight: 3,
-                opacity: 1,
-                fillOpacity: 0.8
-            }
+            { radius, fillColor: color, color: '#FFA500', weight: 3, opacity: 1, fillOpacity: 0.8 }
         ).addTo(map);
 
         marker.bindPopup(`
@@ -1069,12 +1015,7 @@ function displayFiresOnMap(firesData) {
 }
 
 function getRiskColor(riskValue) {
-    const colors = {
-        0: '#10B981',
-        1: '#F59E0B',
-        2: '#EF4444'
-    };
-    return colors[riskValue] || '#94A3B8';
+    return { 0: '#10B981', 1: '#F59E0B', 2: '#EF4444' }[riskValue] || '#94A3B8';
 }
 
 // ===== GRAFICO HISTORICO =====
@@ -1086,7 +1027,6 @@ function plotHistory(historyData) {
     const dates = Object.keys(historyData).sort();
     const riskData = dates.map(date => historyData[date].risk_avg * 100);
     const firesData = dates.map(date => historyData[date].fires_count);
-
     const labels = dates.map(date => {
         const d = new Date(date);
         return `${d.getDate()}/${d.getMonth() + 1}`;
@@ -1095,14 +1035,12 @@ function plotHistory(historyData) {
     const ctx = document.getElementById('history-chart');
     if (!ctx) return;
 
-    if (historyChart) {
-        historyChart.destroy();
-    }
+    if (historyChart) historyChart.destroy();
 
     historyChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
+            labels,
             datasets: [
                 {
                     label: 'Risco Medio (%)',
@@ -1137,17 +1075,10 @@ function plotHistory(historyData) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
+            interaction: { intersect: false, mode: 'index' },
             plugins: {
                 legend: {
-                    labels: {
-                        color: '#F1F5F9',
-                        font: { size: 13, weight: '600' },
-                        padding: 15
-                    }
+                    labels: { color: '#F1F5F9', font: { size: 13, weight: '600' }, padding: 15 }
                 },
                 tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -1162,56 +1093,20 @@ function plotHistory(historyData) {
             },
             scales: {
                 x: {
-                    ticks: {
-                        color: '#94A3B8',
-                        font: { size: 12 }
-                    },
-                    grid: {
-                        color: 'rgba(51, 65, 85, 0.3)',
-                        drawBorder: false
-                    }
+                    ticks: { color: '#94A3B8', font: { size: 12 } },
+                    grid: { color: 'rgba(51, 65, 85, 0.3)', drawBorder: false }
                 },
                 y: {
-                    type: 'linear',
-                    display: true,
-                    position: 'left',
-                    min: 0,
-                    max: 100,
-                    ticks: {
-                        color: '#10B981',
-                        font: { size: 12, weight: '600' },
-                        callback: value => value + '%'
-                    },
-                    grid: {
-                        color: 'rgba(16, 185, 129, 0.1)',
-                        drawBorder: false
-                    },
-                    title: {
-                        display: true,
-                        text: 'Risco (%)',
-                        color: '#10B981',
-                        font: { size: 13, weight: 'bold' }
-                    }
+                    type: 'linear', display: true, position: 'left', min: 0, max: 100,
+                    ticks: { color: '#10B981', font: { size: 12, weight: '600' }, callback: value => value + '%' },
+                    grid: { color: 'rgba(16, 185, 129, 0.1)', drawBorder: false },
+                    title: { display: true, text: 'Risco (%)', color: '#10B981', font: { size: 13, weight: 'bold' } }
                 },
                 y1: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    min: 0,
-                    ticks: {
-                        color: '#F59E0B',
-                        font: { size: 12, weight: '600' }
-                    },
-                    grid: {
-                        drawOnChartArea: false,
-                        drawBorder: false
-                    },
-                    title: {
-                        display: true,
-                        text: 'Fogos',
-                        color: '#F59E0B',
-                        font: { size: 13, weight: 'bold' }
-                    }
+                    type: 'linear', display: true, position: 'right', min: 0,
+                    ticks: { color: '#F59E0B', font: { size: 12, weight: '600' } },
+                    grid: { drawOnChartArea: false, drawBorder: false },
+                    title: { display: true, text: 'Fogos', color: '#F59E0B', font: { size: 13, weight: 'bold' } }
                 }
             }
         }
@@ -1237,11 +1132,9 @@ function renderModelScience(data) {
     const section = document.getElementById('science-section');
     if (section) section.style.display = 'block';
 
-    // Update subtitle
     const sub = document.getElementById('model-science-subtitle');
     if (sub) sub.textContent = 'Random Forest · Precisao: ' + data.accuracy_pct + '%';
 
-    // Metrics row
     document.getElementById('sci-accuracy').textContent = data.accuracy_pct + '%';
     document.getElementById('sci-trees').textContent = data.n_trees || '--';
     document.getElementById('sci-features').textContent = data.n_features || '--';
@@ -1262,9 +1155,8 @@ function renderConfusionMatrix(cm) {
             if (!cell) continue;
             const val = cm[classes[i]] && cm[classes[i]][classes[j]];
             if (val) {
-                const isDiagonal = i === j;
                 cell.innerHTML = val.pct + '%<span class="cm-count">(' + val.count + ')</span>';
-                if (isDiagonal) {
+                if (i === j) {
                     cell.className = 'cm-cell ' + (i === 0 ? 'cm-baixo' : i === 1 ? 'cm-medio' : 'cm-alto');
                 }
             }
@@ -1278,9 +1170,8 @@ function renderFeatureImportance(featureImportance, featureNames) {
 
     const barColors = ['bar-green', 'bar-blue', 'bar-purple', 'bar-orange', 'bar-red', 'bar-teal', 'bar-indigo', 'bar-pink'];
 
-    // Sort features by importance descending
     const sorted = featureNames
-        ? featureNames.map((name, i) => ({ name: name, importance: featureImportance[name] || 0 }))
+        ? featureNames.map((name, i) => ({ name, importance: featureImportance[name] || 0 }))
             .sort((a, b) => b.importance - a.importance)
         : Object.entries(featureImportance)
             .map(([name, imp]) => ({ name, importance: imp }))
@@ -1311,7 +1202,7 @@ function renderClassMetrics(metrics) {
     classes.forEach(cls => {
         const m = metrics[cls];
         if (!m) return;
-        const set = function(id, val) {
+        const set = (id, val) => {
             const el = document.getElementById(id);
             if (el) el.textContent = val !== undefined ? (val * 100).toFixed(1) + '%' : '--';
         };
@@ -1328,7 +1219,6 @@ function renderBaselineComparison(baseline) {
     const mlAccNum = parseFloat(mlAcc) / 100;
     const improvement = baseline.ml_improvement !== undefined ? baseline.ml_improvement : (mlAccNum - baseAcc);
 
-    // Animate bars after a short delay
     setTimeout(() => {
         const baseBar = document.getElementById('baseline-base-bar');
         const mlBar = document.getElementById('baseline-ml-bar');
@@ -1340,13 +1230,11 @@ function renderBaselineComparison(baseline) {
             baseBar.textContent = basePct + '%';
         }
         if (mlBar) {
-            const mlPct = mlAcc;
-            mlBar.style.width = mlPct + '%';
-            mlBar.textContent = mlPct + '%';
+            mlBar.style.width = mlAcc + '%';
+            mlBar.textContent = mlAcc + '%';
         }
         if (improvementEl) {
-            const impPct = (improvement * 100).toFixed(1);
-            improvementEl.textContent = 'Ganho: +' + impPct + '% com Machine Learning';
+            improvementEl.textContent = 'Ganho: +' + (improvement * 100).toFixed(1) + '% com Machine Learning';
         }
     }, 300);
 }
@@ -1416,20 +1304,16 @@ function setupEventListeners() {
             if (!mapContainer) return;
 
             const isFullscreen = mapContainer.classList.toggle('fullscreen');
-
             if (isFullscreen) {
                 fullscreenBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg> Sair do Ecra Completo';
             } else {
                 fullscreenBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> Ecra Completo';
             }
 
-            setTimeout(() => {
-                if (map) map.invalidateSize();
-            }, 300);
+            setTimeout(() => { if (map) map.invalidateSize(); }, 300);
         });
     }
 
-    // Simulation slider listeners (debounced 300ms to avoid API spam)
     const debouncedSim = debounce((city) => runSimulation(city), 300);
     const simSliders = ['sim-temp', 'sim-humidity', 'sim-wind'];
     simSliders.forEach(id => {
@@ -1438,9 +1322,7 @@ function setupEventListeners() {
         if (slider && display) {
             slider.addEventListener('input', () => {
                 display.textContent = slider.value;
-                if (simSelectedCity) {
-                    debouncedSim(simSelectedCity);
-                }
+                if (simSelectedCity) debouncedSim(simSelectedCity);
             });
         }
     });
@@ -1452,13 +1334,9 @@ function setupEventListeners() {
         });
     }
 
-    // Language toggle
     const langToggle = document.getElementById('lang-toggle');
-    if (langToggle) {
-        langToggle.addEventListener('click', toggleLanguage);
-    }
+    if (langToggle) langToggle.addEventListener('click', toggleLanguage);
 
-    // Apply saved language on page load
     applyLanguage(currentLang);
 }
 
