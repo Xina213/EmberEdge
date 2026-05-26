@@ -398,14 +398,15 @@
     <div class="card">
         <div class="card-header">
             <div class="card-icon">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M12 6v6l4 2"/>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.5">
+                    <path d="M12 4a4 4 0 0 1 3.5 5.75A4.5 4.5 0 0 1 16 13.5c0 1.66-1.34 3-3 3s-3-1.34-3-3c0-1.27.52-2.42 1.37-3.24A4 4 0 0 1 12 4z"/>
+                    <path d="M9 4.5a5 5 0 0 0-4 4.5c0 1.8.9 3.3 2 4.5V17a1 1 0 0 0 1 1h2"/>
+                    <path d="M15 4.5a5 5 0 0 1 4 4.5c0 1.8-.9 3.3-2 4.5V17a1 1 0 0 1-1 1h-2"/>
                 </svg>
             </div>
-            <h3 data-i18n="science-title">Ciencia do Modelo</h3>
-            <span class="card-subtitle" id="model-science-subtitle" data-i18n="science-subtitle">Random Forest &middot; Precisao: --</span>
-            <button class="science-toggle" id="science-toggle" onclick="toggleScience()" aria-label="Expandir ciencia do modelo">
+            <h3 data-i18n="science-title">Ciência do Modelo</h3>
+            <span class="card-subtitle" id="model-science-subtitle" data-i18n="science-subtitle">Random Forest &middot; Precisão: --</span>
+            <button class="science-toggle" id="science-toggle" onclick="toggleScience()" aria-label="Expandir ciência do modelo">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="6 9 12 15 18 9"/>
                 </svg>
@@ -414,9 +415,9 @@
         <div class="card-body science-body" id="science-body" style="display:none;">
             <!-- Top metrics row -->
             <div class="science-metrics-row" id="science-metrics-row">
-                <div class="science-metric-card"><span class="science-metric-value" id="sci-accuracy">--</span><span class="science-metric-label">Precisao Global</span></div>
-                <div class="science-metric-card"><span class="science-metric-value" id="sci-trees">--</span><span class="science-metric-label">Arvores</span></div>
-                <div class="science-metric-card"><span class="science-metric-value" id="sci-features">--</span><span class="science-metric-label">Variaveis</span></div>
+                <div class="science-metric-card"><span class="science-metric-value" id="sci-accuracy">--</span><span class="science-metric-label">Precisão Global</span></div>
+                <div class="science-metric-card"><span class="science-metric-value" id="sci-trees">--</span><span class="science-metric-label">Árvores</span></div>
+                <div class="science-metric-card"><span class="science-metric-value" id="sci-features">--</span><span class="science-metric-label">Variáveis</span></div>
                 <div class="science-metric-card"><span class="science-metric-value" id="sci-samples">--</span><span class="science-metric-label">Amostras Treino</span></div>
             </div>
 
@@ -424,18 +425,18 @@
             <div class="science-grid-2">
                 <!-- Confusion Matrix -->
                 <div class="science-block">
-                    <h4>Matriz de Confusao</h4>
-                    <p class="science-desc">Percentagem de previsoes corretas vs erradas por classe</p>
+                    <h4>Matriz de Confusão</h4>
+                    <p class="science-desc">Percentagem de previsões corretas vs erradas por classe</p>
                     <div id="confusion-matrix" class="confusion-grid">
                         <div class="cm-empty"></div>
                         <div class="cm-header">Previsto Baixo</div>
-                        <div class="cm-header">Previsto Medio</div>
+                        <div class="cm-header">Previsto Médio</div>
                         <div class="cm-header">Previsto Alto</div>
                         <div class="cm-row-label">Real Baixo</div>
                         <div class="cm-cell cm-baixo" id="cm-baixo-baixo">--</div>
                         <div class="cm-cell cm-erro" id="cm-baixo-medio">--</div>
                         <div class="cm-cell cm-erro" id="cm-baixo-alto">--</div>
-                        <div class="cm-row-label">Real Medio</div>
+                        <div class="cm-row-label">Real Médio</div>
                         <div class="cm-cell cm-erro" id="cm-medio-baixo">--</div>
                         <div class="cm-cell cm-medio" id="cm-medio-medio">--</div>
                         <div class="cm-cell cm-erro" id="cm-medio-alto">--</div>
@@ -448,32 +449,32 @@
 
                 <!-- Feature Importance -->
                 <div class="science-block">
-                    <h4>Importancia das Variaveis</h4>
-                    <p class="science-desc">Peso de cada fator na decisao do modelo</p>
+                    <h4>Importância das Variáveis</h4>
+                    <p class="science-desc">Peso de cada fator na decisão do modelo</p>
                     <div id="feature-importance-bars" class="fi-container"></div>
-                    <div class="fi-note">📡 NDVI real do satelite Copernicus melhora a precisao</div>
+                    <div class="fi-note">📡 NDVI real do satélite Copernicus melhora a precisão</div>
                 </div>
             </div>
 
             <!-- Metrics per class + Baseline -->
             <div class="science-grid-2">
                 <div class="science-block">
-                    <h4>Metricas por Classe</h4>
+                    <h4>Métricas por Classe</h4>
                     <div class="metrics-table-wrapper">
                         <table class="science-table" id="class-metrics-table">
                             <thead>
-                                <tr><th>Classe</th><th>Precisao</th><th>Sensibilidade</th><th>F1-Score</th></tr>
+                                <tr><th>Classe</th><th>Precisão</th><th>Sensibilidade</th><th>F1-Score</th></tr>
                             </thead>
                             <tbody>
                                 <tr><td><span class="cm-dot alto-dot"></span>Alto</td><td id="cm-alto-prec">--</td><td id="cm-alto-recall">--</td><td id="cm-alto-f1">--</td></tr>
-                                <tr><td><span class="cm-dot medio-dot"></span>Medio</td><td id="cm-medio-prec">--</td><td id="cm-medio-recall">--</td><td id="cm-medio-f1">--</td></tr>
+                                <tr><td><span class="cm-dot medio-dot"></span>Médio</td><td id="cm-medio-prec">--</td><td id="cm-medio-recall">--</td><td id="cm-medio-f1">--</td></tr>
                                 <tr><td><span class="cm-dot baixo-dot"></span>Baixo</td><td id="cm-baixo-prec">--</td><td id="cm-baixo-recall">--</td><td id="cm-baixo-f1">--</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
                 <div class="science-block">
-                    <h4>Comparacao com Baseline</h4>
+                    <h4>Comparação com Baseline</h4>
                     <p class="science-desc">Modelo ML vs regras simples (temp&gt;30 + hum&lt;30 → Alto)</p>
                     <div id="baseline-comparison" class="baseline-container">
                         <div class="baseline-bar-group">
@@ -486,7 +487,7 @@
                         </div>
                         <div class="baseline-improvement" id="baseline-improvement">Ganho: --</div>
                     </div>
-                    <div class="baseline-note">📊 O ML supera regras fixas em cenarios complexos</div>
+                    <div class="baseline-note">📊 O ML supera regras fixas em cenários complexos</div>
                 </div>
             </div>
 
