@@ -322,8 +322,8 @@ async function loadAllData() {
         fetchAPI('/fires').then(d => { console.log('✅ /fires loaded'); return d; }).catch(e => { console.error('❌ /fires failed:', e); return null; }),
         fetchAPI('/weather').then(d => { console.log('✅ /weather loaded'); return d; }).catch(e => { console.error('❌ /weather failed:', e); return null; }),
         fetchAPI('/history').then(d => { console.log('✅ /history loaded'); return d; }).catch(e => { console.error('❌ /history failed:', e); return null; }),
-        fetchAPI('/risk/all').then(d => { console.log('✅ /risk/all loaded'); return d; }).catch(e => { console.error('❌ /risk/all failed:', e); return null; }),
-        fetchAPI('/model/info').then(d => { console.log('✅ /model/info loaded'); return d; }).catch(e => { console.error('❌ /model/info failed:', e); return null; })
+        fetchWithRetry('/risk/all', 2, 4000, 20000).then(d => { console.log('✅ /risk/all loaded'); return d; }).catch(e => { console.error('❌ /risk/all failed:', e); return null; }),
+        fetchWithRetry('/model/info', 2, 4000, 15000).then(d => { console.log('✅ /model/info loaded'); return d; }).catch(e => { console.error('❌ /model/info failed:', e); return null; })
     ]);
 
     // Graceful degradation: only update sections that loaded successfully
@@ -360,15 +360,49 @@ async function loadAllData() {
         document.getElementById('risk-cities-content').closest('.card').classList.remove('card-offline');
         loadedCount++;
     } else {
-        document.getElementById('risk-cities-content').closest('.card').classList.add('card-offline');
+        // Show loading state instead of aggressive offline overlay
+        const riskContent = document.getElementById('risk-cities-content');
+        if (!riskContent.querySelector('.risk-retry-msg')) {
+            riskContent.innerHTML = `
+                <div class="risk-retry-msg" style="text-align:center;padding:1.5rem;color:var(--color-text-secondary);">
+                    <div style="margin-bottom:8px;font-size:0.9rem;">A carregar dados de risco...</div>
+                    <div style="width:24px;height:24px;border:3px solid var(--color-border);border-top-color:var(--color-accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto;"></div>
+                </div>`;
+        }
+        // Background retry: try again after a delay (Render wake-up takes time)
+        const weatherForRetry = weather || { data: {} };
+        (async function retryRisk() {
+            const retryResult = await fetchWithRetry('/risk/all', 2, 5000, 20000);
+            if (retryResult && retryResult.status === 'success') {
+                displayRiskCities(retryResult, weatherForRetry);
+                checkAlerts(retryResult);
+                displayHeatmap(retryResult);
+                document.getElementById('risk-cities-content').closest('.card').classList.remove('card-offline');
+            } else {
+                const riskContent = document.getElementById('risk-cities-content');
+                riskContent.innerHTML = '<p style="text-align:center;color:var(--color-text-secondary);padding:1rem;">Dados de risco temporariamente indisponiveis</p>';
+            }
+        })();
     }
     if (history && Object.keys(history).length > 0) {
         plotHistory(history);
         loadedCount++;
     }
-    if (modelInfo && modelInfo.status === 'success') {
+    if (modelInfo && modelInfo.status === 'success' && modelInfo.data?.confusion_matrix) {
         renderModelScience(modelInfo.data);
         loadedCount++;
+    } else {
+        // Science section remains hidden until build completes with real data
+        if (modelInfo && modelInfo.status === 'success') {
+            console.log('⏳ Model metadata loading (no confusion matrix yet)');
+        }
+        // Retry model info in background — build may still be deploying
+        (async function retryModelInfo() {
+            const retryResult = await fetchWithRetry('/model/info', 4, 5000, 15000);
+            if (retryResult && retryResult.status === 'success' && retryResult.data?.confusion_matrix) {
+                renderModelScience(retryResult.data);
+            }
+        })();
     }
 
     // Show per-source timestamps
@@ -717,6 +751,17 @@ function debounce(fn, ms) {
 }
 
 // ===== FETCH API =====
+async function fetchWithRetry(endpoint, retries = 3, delay = 4000, timeoutMs = 20000) {
+    for (let i = 0; i < retries; i++) {
+        const result = await fetchAPI(endpoint, timeoutMs).catch(e => null);
+        if (result && result.status === 'success') return result;
+        if (i < retries - 1) {
+            await new Promise(r => setTimeout(r, delay));
+        }
+    }
+    return null;
+}
+
 async function fetchAPI(endpoint, timeoutMs = 15000) {
     try {
         const controller = new AbortController();
