@@ -409,6 +409,37 @@ def health():
     })
 
 
+@app.route('/api/model/info')
+def model_info():
+    """Return model metrics, confusion matrix, feature importance for science section."""
+    try:
+        meta_path = os.path.join(DATA_DIR, 'model_metadata.json')
+        with open(meta_path, 'r') as f:
+            meta = json.load(f)
+        return jsonify({
+            "status": "success",
+            "data": {
+                "accuracy": meta.get('accuracy'),
+                "accuracy_pct": round(meta.get('accuracy', 0) * 100, 1),
+                "n_trees": meta.get('n_trees'),
+                "n_features": meta.get('n_features'),
+                "feature_names": meta.get('feature_names'),
+                "feature_importance": meta.get('feature_importance'),
+                "class_metrics": meta.get('class_metrics'),
+                "confusion_matrix": meta.get('confusion_matrix'),
+                "baseline": meta.get('baseline'),
+                "n_samples": meta.get('n_samples'),
+                "class_distribution": meta.get('class_distribution'),
+                "training_date": meta.get('training_date'),
+                "weather_source": meta.get('weather_source'),
+                "fire_source": meta.get('fire_source'),
+                "ndvi_source": meta.get('ndvi_source')
+            }
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 
 @app.route('/api/copernicus/status')
 def copernicus_status():

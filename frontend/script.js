@@ -108,12 +108,13 @@ async function loadAllData() {
     console.log('📡 Fetching all APIs...');
 
     // Fetch each API individually so one failure doesn't break the whole dashboard
-    const [stats, fires, weather, history, riskAll] = await Promise.all([
+    const [stats, fires, weather, history, riskAll, modelInfo] = await Promise.all([
         fetchAPI('/stats').then(d => { console.log('✅ /stats loaded'); return d; }).catch(e => { console.error('❌ /stats failed:', e); return null; }),
         fetchAPI('/fires').then(d => { console.log('✅ /fires loaded'); return d; }).catch(e => { console.error('❌ /fires failed:', e); return null; }),
         fetchAPI('/weather').then(d => { console.log('✅ /weather loaded'); return d; }).catch(e => { console.error('❌ /weather failed:', e); return null; }),
         fetchAPI('/history').then(d => { console.log('✅ /history loaded'); return d; }).catch(e => { console.error('❌ /history failed:', e); return null; }),
-        fetchAPI('/risk/all').then(d => { console.log('✅ /risk/all loaded'); return d; }).catch(e => { console.error('❌ /risk/all failed:', e); return null; })
+        fetchAPI('/risk/all').then(d => { console.log('✅ /risk/all loaded'); return d; }).catch(e => { console.error('❌ /risk/all failed:', e); return null; }),
+        fetchAPI('/model/info').then(d => { console.log('✅ /model/info loaded'); return d; }).catch(e => { console.error('❌ /model/info failed:', e); return null; })
     ]);
 
     // Graceful degradation: only update sections that loaded successfully
@@ -154,6 +155,10 @@ async function loadAllData() {
     }
     if (history && Object.keys(history).length > 0) {
         plotHistory(history);
+        loadedCount++;
+    }
+    if (modelInfo && modelInfo.status === 'success') {
+        renderModelScience(modelInfo.data);
         loadedCount++;
     }
 
@@ -948,6 +953,137 @@ function plotHistory(historyData) {
     });
 
     console.log('Grafico historico criado');
+}
+
+// ===== CIENCIA DO MODELO =====
+let scienceExpanded = false;
+
+window.toggleScience = function() {
+    scienceExpanded = !scienceExpanded;
+    const body = document.getElementById('science-body');
+    const toggle = document.getElementById('science-toggle');
+    if (body) body.style.display = scienceExpanded ? 'block' : 'none';
+    if (toggle) toggle.classList.toggle('open', scienceExpanded);
+};
+
+function renderModelScience(data) {
+    console.log('🔬 Model science data loaded:', data.accuracy_pct + '%');
+
+    const section = document.getElementById('science-section');
+    if (section) section.style.display = 'block';
+
+    // Update subtitle
+    const sub = document.getElementById('model-science-subtitle');
+    if (sub) sub.textContent = 'Random Forest · Precisao: ' + data.accuracy_pct + '%';
+
+    // Metrics row
+    document.getElementById('sci-accuracy').textContent = data.accuracy_pct + '%';
+    document.getElementById('sci-trees').textContent = data.n_trees || '--';
+    document.getElementById('sci-features').textContent = data.n_features || '--';
+    document.getElementById('sci-samples').textContent = data.n_samples ? data.n_samples.toLocaleString() : '--';
+
+    renderConfusionMatrix(data.confusion_matrix);
+    renderFeatureImportance(data.feature_importance, data.feature_names);
+    renderClassMetrics(data.class_metrics);
+    renderBaselineComparison(data.baseline);
+}
+
+function renderConfusionMatrix(cm) {
+    if (!cm) return;
+    const classes = ['baixo', 'medio', 'alto'];
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            const cell = document.getElementById('cm-' + classes[i] + '-' + classes[j]);
+            if (!cell) continue;
+            const val = cm[classes[i]] && cm[classes[i]][classes[j]];
+            if (val) {
+                const isDiagonal = i === j;
+                cell.innerHTML = val.pct + '%<span class="cm-count">(' + val.count + ')</span>';
+                if (isDiagonal) {
+                    cell.className = 'cm-cell ' + (i === 0 ? 'cm-baixo' : i === 1 ? 'cm-medio' : 'cm-alto');
+                }
+            }
+        }
+    }
+}
+
+function renderFeatureImportance(featureImportance, featureNames) {
+    const container = document.getElementById('feature-importance-bars');
+    if (!container || !featureImportance) return;
+
+    const barColors = ['bar-green', 'bar-blue', 'bar-purple', 'bar-orange', 'bar-red', 'bar-teal', 'bar-indigo', 'bar-pink'];
+
+    // Sort features by importance descending
+    const sorted = featureNames
+        ? featureNames.map((name, i) => ({ name: name, importance: featureImportance[name] || 0 }))
+            .sort((a, b) => b.importance - a.importance)
+        : Object.entries(featureImportance)
+            .map(([name, imp]) => ({ name, importance: imp }))
+            .sort((a, b) => b.importance - a.importance);
+
+    const maxImp = sorted[0] ? sorted[0].importance : 1;
+
+    let html = '';
+    sorted.forEach((item, idx) => {
+        const pct = (item.importance * 100).toFixed(1);
+        const widthPct = (item.importance / maxImp * 100).toFixed(1);
+        const colorClass = barColors[idx % barColors.length];
+        const nameLabel = item.name.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+        html += '<div class="fi-bar-group">'
+            + '<span class="fi-bar-name">' + nameLabel + '</span>'
+            + '<div class="fi-bar-track">'
+            + '<div class="fi-bar-fill ' + colorClass + '" style="width:' + widthPct + '%">' + pct + '%</div>'
+            + '</div>'
+            + '</div>';
+    });
+
+    container.innerHTML = html;
+}
+
+function renderClassMetrics(metrics) {
+    if (!metrics) return;
+    const classes = ['alto', 'medio', 'baixo'];
+    classes.forEach(cls => {
+        const m = metrics[cls];
+        if (!m) return;
+        const set = function(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val !== undefined ? (val * 100).toFixed(1) + '%' : '--';
+        };
+        set('cm-' + cls + '-prec', m.precision);
+        set('cm-' + cls + '-recall', m.recall);
+        set('cm-' + cls + '-f1', m.f1_score);
+    });
+}
+
+function renderBaselineComparison(baseline) {
+    if (!baseline) return;
+    const baseAcc = baseline.accuracy || 0;
+    const mlAcc = parseFloat(document.getElementById('sci-accuracy')?.textContent || '0');
+    const mlAccNum = parseFloat(mlAcc) / 100;
+    const improvement = baseline.ml_improvement !== undefined ? baseline.ml_improvement : (mlAccNum - baseAcc);
+
+    // Animate bars after a short delay
+    setTimeout(() => {
+        const baseBar = document.getElementById('baseline-base-bar');
+        const mlBar = document.getElementById('baseline-ml-bar');
+        const improvementEl = document.getElementById('baseline-improvement');
+
+        if (baseBar) {
+            const basePct = (baseAcc * 100).toFixed(1);
+            baseBar.style.width = basePct + '%';
+            baseBar.textContent = basePct + '%';
+        }
+        if (mlBar) {
+            const mlPct = mlAcc;
+            mlBar.style.width = mlPct + '%';
+            mlBar.textContent = mlPct + '%';
+        }
+        if (improvementEl) {
+            const impPct = (improvement * 100).toFixed(1);
+            improvementEl.textContent = 'Ganho: +' + impPct + '% com Machine Learning';
+        }
+    }, 300);
 }
 
 // ===== SIMULACAO INTERATIVA =====

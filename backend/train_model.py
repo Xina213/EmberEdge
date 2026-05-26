@@ -314,9 +314,24 @@ def train_model():
         marker = " <<<" if imp == max(rf.feature_importances_) else ""
         print(f"   {name}: {imp:.3f}{marker}")
 
-    # Calculate per-class metrics
+    # ===== BASELINE COMPARISON =====
+    # Simple rule-based model to prove ML adds value
+    def rule_baseline_predict(t, h, w):
+        if t > 30 and h < 30:
+            return 2
+        elif t > 25 and h < 50:
+            return 1
+        return 0
+
+    y_baseline = np.array([rule_baseline_predict(X_test[i,0], X_test[i,1], X_test[i,2]) for i in range(len(X_test))])
+    baseline_acc = accuracy_score(y_test, y_baseline)
+    print(f"\n[BASELINE] Rule-based accuracy: {baseline_acc * 100:.1f}%")
+    print(f"[BASELINE] ML improvement: {(accuracy - baseline_acc) * 100:.1f}%")
+
+    # Per-class metrics
     from sklearn.metrics import precision_recall_fscore_support
     per_class = precision_recall_fscore_support(y_test, y_pred, labels=[0, 1, 2])
+    baseline_per_class = precision_recall_fscore_support(y_test, y_baseline, labels=[0, 1, 2])
     class_metrics = {}
     for i, class_name in enumerate(['baixo', 'medio', 'alto']):
         class_metrics[class_name] = {
@@ -325,6 +340,19 @@ def train_model():
             'f1_score': round(per_class[2][i], 4),
             'support': int(per_class[3][i])
         }
+
+    # Confusion matrix as percentages for visual display
+    cm = confusion_matrix(y_test, y_pred)
+    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    class_names_list = ['baixo', 'medio', 'alto']
+    confusion_data = {}
+    for i, true_class in enumerate(class_names_list):
+        confusion_data[true_class] = {}
+        for j, pred_class in enumerate(class_names_list):
+            confusion_data[true_class][pred_class] = {
+                'count': int(cm[i][j]),
+                'pct': round(float(cm_normalized[i][j]) * 100, 1)
+            }
 
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
     joblib.dump(rf, MODEL_PATH)
@@ -352,6 +380,12 @@ def train_model():
             'alto': int(sum(y==2))
         },
         'class_metrics': class_metrics,
+        'confusion_matrix': confusion_data,
+        'baseline': {
+            'description': 'Rule-based: if temp>30 and hum<30 → Alto, elif temp>25 and hum<50 → Medio',
+            'accuracy': round(float(baseline_acc), 4),
+            'ml_improvement': round(float(accuracy - baseline_acc), 4)
+        },
         'weather_source': 'ERA5 (ECMWF reanalysis) - 100% real',
         'fire_source': 'ICNF (Portugal 2000-2023) - 100% real',
         'ndvi_source': {

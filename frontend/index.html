@@ -371,6 +371,117 @@
     </div>
 </div>
 
+<!-- ===== CIENCIA DO MODELO (SECCAO CIENTIFICA) ===== -->
+<section class="science-section" id="science-section" style="display:none;">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 6v6l4 2"/>
+                </svg>
+            </div>
+            <h3>Ciencia do Modelo</h3>
+            <span class="card-subtitle" id="model-science-subtitle">Random Forest &middot; Precisao: --</span>
+            <button class="science-toggle" id="science-toggle" onclick="toggleScience()" aria-label="Expandir ciencia do modelo">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </button>
+        </div>
+        <div class="card-body science-body" id="science-body" style="display:none;">
+            <!-- Top metrics row -->
+            <div class="science-metrics-row" id="science-metrics-row">
+                <div class="science-metric-card"><span class="science-metric-value" id="sci-accuracy">--</span><span class="science-metric-label">Precisao Global</span></div>
+                <div class="science-metric-card"><span class="science-metric-value" id="sci-trees">--</span><span class="science-metric-label">Arvores</span></div>
+                <div class="science-metric-card"><span class="science-metric-value" id="sci-features">--</span><span class="science-metric-label">Variaveis</span></div>
+                <div class="science-metric-card"><span class="science-metric-value" id="sci-samples">--</span><span class="science-metric-label">Amostras Treino</span></div>
+            </div>
+
+            <!-- Two-column layout: Confusion Matrix + Feature Importance -->
+            <div class="science-grid-2">
+                <!-- Confusion Matrix -->
+                <div class="science-block">
+                    <h4>Matriz de Confusao</h4>
+                    <p class="science-desc">Percentagem de previsoes corretas vs erradas por classe</p>
+                    <div id="confusion-matrix" class="confusion-grid">
+                        <div class="cm-empty"></div>
+                        <div class="cm-header">Previsto Baixo</div>
+                        <div class="cm-header">Previsto Medio</div>
+                        <div class="cm-header">Previsto Alto</div>
+                        <div class="cm-row-label">Real Baixo</div>
+                        <div class="cm-cell cm-baixo" id="cm-baixo-baixo">--</div>
+                        <div class="cm-cell cm-erro" id="cm-baixo-medio">--</div>
+                        <div class="cm-cell cm-erro" id="cm-baixo-alto">--</div>
+                        <div class="cm-row-label">Real Medio</div>
+                        <div class="cm-cell cm-erro" id="cm-medio-baixo">--</div>
+                        <div class="cm-cell cm-medio" id="cm-medio-medio">--</div>
+                        <div class="cm-cell cm-erro" id="cm-medio-alto">--</div>
+                        <div class="cm-row-label">Real Alto</div>
+                        <div class="cm-cell cm-erro" id="cm-alto-baixo">--</div>
+                        <div class="cm-cell cm-erro" id="cm-alto-medio">--</div>
+                        <div class="cm-cell cm-alto" id="cm-alto-alto">--</div>
+                    </div>
+                </div>
+
+                <!-- Feature Importance -->
+                <div class="science-block">
+                    <h4>Importancia das Variaveis</h4>
+                    <p class="science-desc">Peso de cada fator na decisao do modelo</p>
+                    <div id="feature-importance-bars" class="fi-container"></div>
+                    <div class="fi-note">📡 NDVI real do satelite Copernicus melhora a precisao</div>
+                </div>
+            </div>
+
+            <!-- Metrics per class + Baseline -->
+            <div class="science-grid-2">
+                <div class="science-block">
+                    <h4>Metricas por Classe</h4>
+                    <div class="metrics-table-wrapper">
+                        <table class="science-table" id="class-metrics-table">
+                            <thead>
+                                <tr><th>Classe</th><th>Precisao</th><th>Sensibilidade</th><th>F1-Score</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><span class="cm-dot alto-dot"></span>Alto</td><td id="cm-alto-prec">--</td><td id="cm-alto-recall">--</td><td id="cm-alto-f1">--</td></tr>
+                                <tr><td><span class="cm-dot medio-dot"></span>Medio</td><td id="cm-medio-prec">--</td><td id="cm-medio-recall">--</td><td id="cm-medio-f1">--</td></tr>
+                                <tr><td><span class="cm-dot baixo-dot"></span>Baixo</td><td id="cm-baixo-prec">--</td><td id="cm-baixo-recall">--</td><td id="cm-baixo-f1">--</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="science-block">
+                    <h4>Comparacao com Baseline</h4>
+                    <p class="science-desc">Modelo ML vs regras simples (temp&gt;30 + hum&lt;30 → Alto)</p>
+                    <div id="baseline-comparison" class="baseline-container">
+                        <div class="baseline-bar-group">
+                            <div class="baseline-label">Regras Simples</div>
+                            <div class="baseline-track"><div class="baseline-fill baseline-base" id="baseline-base-bar" style="width:0%">--</div></div>
+                        </div>
+                        <div class="baseline-bar-group">
+                            <div class="baseline-label">Random Forest</div>
+                            <div class="baseline-track"><div class="baseline-fill baseline-ml" id="baseline-ml-bar" style="width:0%">--</div></div>
+                        </div>
+                        <div class="baseline-improvement" id="baseline-improvement">Ganho: --</div>
+                    </div>
+                    <div class="baseline-note">📊 O ML supera regras fixas em cenarios complexos</div>
+                </div>
+            </div>
+
+            <!-- Data Sources -->
+            <div class="science-sources">
+                <h4>Fontes de Dados</h4>
+                <div class="sources-grid">
+                    <div class="source-item"><span class="source-dot weather"></span>🌡️ ERA5 (ECMWF) &middot; 2000-2023</div>
+                    <div class="source-item"><span class="source-dot fire"></span>🔥 ICNF &middot; 2000-2023</div>
+                    <div class="source-item"><span class="source-dot satellite"></span>🛰️ Copernicus Sentinel-2 (NDVI)</div>
+                    <div class="source-item"><span class="source-dot now"></span>🌍 OpenWeatherMap (tempo real)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
 </main>
 
     <!-- ===== FOOTER ===== -->
