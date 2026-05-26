@@ -248,14 +248,52 @@ const CITY_NAME_MAP = {
     'Portalegre': 'Portalegre'
 };
 
+// ===== WAKE UP BACKEND (Render cold start can take 30-60s) =====
+async function wakeBackend() {
+    const loadingStatus = document.getElementById('loading-status');
+    const wakeUpStart = Date.now();
+    const maxWait = 45000; // 45s max for cold start
+
+    const check = async () => {
+        try {
+            const r = await fetch(API_BASE + '/api/health', { signal: AbortSignal.timeout(5000) });
+            return r.ok;
+        } catch {
+            return false;
+        }
+    };
+
+    // Try immediately first
+    if (await check()) return true;
+
+    // Backend is sleeping — poll every 3s until it wakes up
+    if (loadingStatus) loadingStatus.textContent = 'A acordar o servidor... (cold start)';
+
+    while (Date.now() - wakeUpStart < maxWait) {
+        await new Promise(r => setTimeout(r, 3000));
+        const elapsed = Math.round((Date.now() - wakeUpStart) / 1000);
+        if (loadingStatus) loadingStatus.textContent = `A acordo servidor... (${elapsed}s)`;
+        if (await check()) {
+            if (loadingStatus) loadingStatus.textContent = 'Servidor pronto!';
+            return true;
+        }
+    }
+
+    return false; // Timed out — proceed anyway, loadAllData will handle errors
+}
+
 // ===== INICIALIZAÇÃO =====
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🔥 EmberEdge Dashboard iniciando...');
 
     initMap();
-    loadAllData();
     setupEventListeners();
     initScrollAnimations();
+
+    // Wake backend first, then load data
+    wakeBackend().then(() => {
+        loadAllData();
+    });
 
     // Auto-refresh a cada 5 minutos
     setInterval(loadAllData, 5 * 60 * 1000);
@@ -314,22 +352,28 @@ async function loadAllData() {
     console.log('📡 Carregando dados...');
     updateStatus('Atualizando dados...', false);
 
-    // Fallback: hide loading screen after 12s even if data fails (Render cold start)
-    const fallbackTimer = setTimeout(() => {
-        hideLoadingScreen();
-    }, 12000);
+    // Global timeout: hide loading screen after 30s no matter what (Render cold start + retries)
+    let loadingHidden = false;
+    const forceHideLoading = () => {
+        if (!loadingHidden) {
+            loadingHidden = true;
+            hideLoadingScreen();
+        }
+    };
+    const globalTimer = setTimeout(forceHideLoading, 30000);
 
     try {
         console.log('📡 Fetching all APIs...');
 
     // Fetch each API individually so one failure doesn't break the whole dashboard
+    // Use shorter timeouts so the global timer can take effect
     const [stats, fires, weather, history, riskAll, modelInfo] = await Promise.all([
-        fetchAPI('/stats').then(d => { console.log('✅ /stats loaded'); return d; }).catch(e => { console.error('❌ /stats failed:', e); return null; }),
-        fetchAPI('/fires').then(d => { console.log('✅ /fires loaded'); return d; }).catch(e => { console.error('❌ /fires failed:', e); return null; }),
-        fetchAPI('/weather').then(d => { console.log('✅ /weather loaded'); return d; }).catch(e => { console.error('❌ /weather failed:', e); return null; }),
-        fetchAPI('/history').then(d => { console.log('✅ /history loaded'); return d; }).catch(e => { console.error('❌ /history failed:', e); return null; }),
-        fetchWithRetry('/risk/all', 2, 4000, 20000).then(d => { console.log('✅ /risk/all loaded'); return d; }).catch(e => { console.error('❌ /risk/all failed:', e); return null; }),
-        fetchWithRetry('/model/info', 2, 4000, 15000).then(d => { console.log('✅ /model/info loaded'); return d; }).catch(e => { console.error('❌ /model/info failed:', e); return null; })
+        fetchAPI('/stats', 10000).then(d => { console.log('✅ /stats loaded'); return d; }).catch(e => { console.error('❌ /stats failed:', e); return null; }),
+        fetchAPI('/fires', 10000).then(d => { console.log('✅ /fires loaded'); return d; }).catch(e => { console.error('❌ /fires failed:', e); return null; }),
+        fetchAPI('/weather', 10000).then(d => { console.log('✅ /weather loaded'); return d; }).catch(e => { console.error('❌ /weather failed:', e); return null; }),
+        fetchAPI('/history', 10000).then(d => { console.log('✅ /history loaded'); return d; }).catch(e => { console.error('❌ /history failed:', e); return null; }),
+        fetchWithRetry('/risk/all', 2, 3000, 10000).then(d => { console.log('✅ /risk/all loaded'); return d; }).catch(e => { console.error('❌ /risk/all failed:', e); return null; }),
+        fetchWithRetry('/model/info', 2, 3000, 10000).then(d => { console.log('✅ /model/info loaded'); return d; }).catch(e => { console.error('❌ /model/info failed:', e); return null; })
     ]);
 
     // Graceful degradation: only update sections that loaded successfully
@@ -417,17 +461,17 @@ async function loadAllData() {
     if (loadedCount > 0) {
         updateStatus('Dados atualizados', true);
         updateLastUpdate();
-        clearTimeout(fallbackTimer);
-        hideLoadingScreen();
+        clearTimeout(globalTimer);
+        forceHideLoading();
     } else {
         updateStatus('Erro ao carregar', false);
-        // Also hide loading screen on complete failure (user sees partial data)
-        hideLoadingScreen();
+        clearTimeout(globalTimer);
+        forceHideLoading();
     }
     } catch (e) {
         console.error('[FATAL] loadAllData error:', e);
-        clearTimeout(fallbackTimer);
-        hideLoadingScreen();
+        clearTimeout(globalTimer);
+        forceHideLoading();
         updateStatus('Erro de conexao', false);
     }
 }
