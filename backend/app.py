@@ -7,7 +7,8 @@ from flask_cors import CORS
 import os, csv, threading, time, json, unicodedata
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from predict_risk import RiskPredictor, get_predictor, get_ndvi_for_city, estimate_ndvi
+from predict_risk import RiskPredictor, get_predictor, get_ndvi_for_city, estimate_ndvi, CITY_COORDS
+from sentinel_ndvi import fetch_all_ndvi as fetch_real_ndvi
 from integrate_ai import AIHistoricalIntegration
 from copernicus_integration import CopernicusIntegration
 from copernicus_frp import enrich_fires_with_real_area
@@ -210,20 +211,21 @@ def get_all_risks():
 
 @app.route('/api/ndvi')
 def get_ndvi_all():
-    """Return current NDVI values for all monitored cities."""
-    rows = load_csv(WEATHER_FILE)
-    result = {}
-    month = datetime.now().month
+    """Return current NDVI values for all monitored cities.
+    Tries real Copernicus Sentinel-2 data first, falls back to seasonal estimation.
+    """
+    try:
+        ndvi_data = fetch_real_ndvi()
+    except Exception:
+        ndvi_data = {}
 
-    for r in rows:
-        city = r.get('city', '')
-        lat = float(r.get('latitude', 40))
-        ndvi, is_real = get_ndvi_for_city(city, month, lat)
+    result = {}
+    for city, data in ndvi_data.items():
         result[city] = {
-            'ndvi': ndvi,
-            'source': 'real' if is_real else 'estimated',
-            'latitude': lat,
-            'month': month
+            'ndvi': data.get('ndvi', 0.5) if isinstance(data, dict) else data,
+            'source': data.get('source', 'estimated') if isinstance(data, dict) else 'estimated',
+            'latitude': CITY_COORDS.get(city, {}).get('lat', 40.0),
+            'month': datetime.now().month
         }
 
     return jsonify({"status":"success","count":len(result),"timestamp":datetime.now().isoformat(),"data":result})
