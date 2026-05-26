@@ -16,8 +16,8 @@ load_dotenv()
 NASA_KEY = os.getenv('NASA_FIRMS_KEY', 'your_key_here')
 OUTPUT_FILE = '../data/fires/fires_latest.csv'
 
-# Bounding Box Portugal Continental + Ilhas
-BBOX = '-10,36,-6,42'
+# Bounding Box Portugal Continental apenas (exclui Espanha)
+BBOX = '-9.8,36.9,-6.2,42.2'
 
 # Cidades principais Portugal
 CITIES = {
@@ -106,18 +106,19 @@ def save_to_csv(fires):
         print(f"[WARN] Erro de API — CSV existente mantido: {OUTPUT_FILE}")
         return
 
+    saved_count = 0
     with open(OUTPUT_FILE, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow([
-            'fire_id', 'city', 'latitude', 'longitude', 
-            'area_hectares', 'active_hours', 'confidence', 
+            'fire_id', 'city', 'latitude', 'longitude',
+            'area_hectares', 'active_hours', 'confidence',
             'temperature', 'timestamp'
         ])
-        
+
         if not fires:
             print(f"[SAVED] Empty CSV: {OUTPUT_FILE}")
             return
-        
+
         for idx, fire in enumerate(fires):
             fire_id = f"FIRMS_{fire['acq_date'].replace('-', '')}_{idx:03d}"
             lat = float(fire['latitude'])
@@ -133,6 +134,10 @@ def save_to_csv(fires):
                     confidence = float(confidence_raw)
                 except (ValueError, TypeError):
                     confidence = 75  # default nominal
+
+            # Filter out low-confidence detections (false positives: agricultural burns, industrial heat, etc.)
+            if confidence < 50:
+                continue
 
             # brightness pode estar em 'bright_ti4' (VIIRS) ou 'brightness' (MODIS)
             brightness_raw = fire.get('bright_ti4') or fire.get('brightness', '300')
@@ -183,8 +188,10 @@ def save_to_csv(fires):
                 confidence, round(temp_celsius, 1),
                 datetime.now().isoformat()
             ])
-    
-    print(f"[SAVED] {len(fires)} fires: {OUTPUT_FILE}")
+            saved_count += 1
+
+    filtered = len(fires) - saved_count
+    print(f"[SAVED] {saved_count} fires (filtered {filtered} low-confidence): {OUTPUT_FILE}")
 
 
 # ===== MAIN =====
@@ -201,8 +208,8 @@ if __name__ == '__main__':
     
     print(f"\n[KEY] {NASA_KEY[:20]}...{NASA_KEY[-10:]}")
     
-    fires_viirs = fetch_firms('VIIRS_SNPP_NRT', days=5)
-    fires_modis = fetch_firms('MODIS_NRT', days=5)
+    fires_viirs = fetch_firms('VIIRS_SNPP_NRT', days=1)
+    fires_modis = fetch_firms('MODIS_NRT', days=1)
     
     all_fires = (fires_viirs or []) + (fires_modis or [])
     

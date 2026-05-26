@@ -6,6 +6,12 @@ echo "=========================================="
 echo "EMBEREDGE - BUILD PHASE"
 echo "=========================================="
 
+# Install Python dependencies (Render overrides default build with custom buildCommand)
+echo ""
+echo "[BUILD] Installing Python dependencies..."
+pip install -r requirements.txt
+echo "[BUILD] Dependencies installed"
+
 # Download Portugal districts GeoJSON for local serving
 echo ""
 echo "[BUILD] Downloading Portugal GeoJSON..."
