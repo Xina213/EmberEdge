@@ -386,6 +386,8 @@ async function addDistrictLayer(weatherData) {
                         });
                         map.closePopup();
                     });
+
+                    layer.on('click', function() {
                         runSimulation(cityData);
                     });
 

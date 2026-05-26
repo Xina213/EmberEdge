@@ -2,7 +2,7 @@
 """EmberEdge - Backend API Flask"""
 
 
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 import os, csv, threading, time, json, unicodedata
 from datetime import datetime, timedelta
@@ -177,7 +177,6 @@ def get_risk_city(city):
             return jsonify({'error':f'City {city} not found','available_cities':[w['city'] for w in weather_list]}), 404
 
         # Support query params for simulation mode (override weather values)
-        from flask import request
         sim_temp = request.args.get('temperature')
         sim_humidity = request.args.get('humidity')
         sim_wind = request.args.get('wind_speed')
