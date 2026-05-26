@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 EmberEdge - Real NDVI from Copernicus Sentinel-2
-Queries the Copernicus Data Space Statistical API for real NDVI values.
+Queries the Copernicus Data Space Process API for real NDVI values.
 
 NDVI (Normalized Difference Vegetation Index) is computed from
 Sentinel-2 L2A bands: B04 (Red, 665nm) and B08 (NIR, 842nm).
@@ -17,9 +17,12 @@ import csv
 import os
 import json
 import time
+import io
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from copernicus_auth import get_copernicus_token
+import numpy as np
+import tifffile
 
 load_dotenv()
 
@@ -52,54 +55,49 @@ CITY_COORDS = {
 # Cache validity: 24 hours (Sentinel-2 revisits every 5 days)
 CACHE_TTL_HOURS = 24
 
+# Small buffer around city center (~2km) to avoid water bodies
+BUFFER_DEG = 0.02
+
+# Sentinel Hub Process API endpoint
+PROCESS_API = "https://sh.dataspace.copernicus.eu/api/v1/process"
+
 # Evalscript for NDVI computation (Sentinel Hub format)
 NDVI_EVALSCRIPT = """
 //VERSION=3
 function setup() {
   return {
-    input: ["B04", "B08", "dataMask"],
-    output: { id: "default", bands: 2, sampleType: "FLOAT32" }
+    input: ["B04", "B08"],
+    output: { bands: 1, sampleType: "FLOAT32" }
   };
 }
 function evaluatePixel(sample) {
   let ndvi = (sample.B08 - sample.B04) / (sample.B08 + sample.B04 + 1e-10);
-  return [ndvi, sample.dataMask];
+  return [ndvi];
 }
 """
 
-STATISTICAL_API = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
 
-
-def build_search_geometry(lat, lon, buffer_deg=0.04):
+def query_ndvi_for_city(lat, lon, token, days_back=30):
     """
-    Build a small square polygon around a city coordinate.
-    ~4km x 4km at Portuguese latitudes (0.04 deg ~= 4.4km).
-    """
-    return {
-        "type": "Polygon",
-        "coordinates": [[
-            [lon - buffer_deg, lat - buffer_deg],
-            [lon + buffer_deg, lat - buffer_deg],
-            [lon + buffer_deg, lat + buffer_deg],
-            [lon - buffer_deg, lat + buffer_deg],
-            [lon - buffer_deg, lat - buffer_deg]
-        ]]
-    }
-
-
-def query_ndvi_for_city(lat, lon, token, days_back=14):
-    """
-    Query the Copernicus Statistical API for mean NDVI around a coordinate.
+    Query the Copernicus Process API for mean NDVI around a coordinate.
     Returns (mean_ndvi, source_description) or (None, error_reason).
     """
-    geometry = build_search_geometry(lat, lon)
+    buffer = BUFFER_DEG
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [[
+            [lon - buffer, lat - buffer],
+            [lon + buffer, lat - buffer],
+            [lon + buffer, lat + buffer],
+            [lon - buffer, lat + buffer],
+            [lon - buffer, lat - buffer]
+        ]]
+    }
 
     date_to = datetime.now()
     date_from = date_to - timedelta(days=days_back)
 
     payload = {
-        "id": f"ndvi_{lat}_{lon}",
-        "evalscript": NDVI_EVALSCRIPT,
         "input": {
             "bounds": {
                 "geometry": geometry,
@@ -116,11 +114,13 @@ def query_ndvi_for_city(lat, lon, token, days_back=14):
                 }
             }]
         },
-        "aggregation": {
-            "timeInterval": "P1D",
-            "aggregationInterval": "P1D",
-            "width": 100,
-            "height": 100
+        "evalscript": NDVI_EVALSCRIPT,
+        "output": {
+            "width": 50,
+            "height": 50,
+            "responses": [
+                {"identifier": "default", "format": {"type": "image/tiff"}}
+            ]
         }
     }
 
@@ -130,33 +130,28 @@ def query_ndvi_for_city(lat, lon, token, days_back=14):
     }
 
     try:
-        response = requests.post(STATISTICAL_API, json=payload, headers=headers, timeout=60)
+        response = requests.post(PROCESS_API, json=payload, headers=headers, timeout=120)
         response.raise_for_status()
-        result = response.json()
 
-        # Parse the response to extract mean NDVI
-        data_entries = result.get("data", [])
-        valid_ndvi_values = []
+        # Parse TIFF response
+        with tifffile.TiffFile(io.BytesIO(response.content)) as tif:
+            img = tif.asarray()
 
-        for entry in data_entries:
-            outputs = entry.get("outputs", {})
-            default_band = outputs.get("default", {}).get("bands", {}).get("0", {})
-            stats = default_band.get("stats", {})
-            mean_value = stats.get("mean")
+        # Extract NDVI band
+        if img.ndim > 2:
+            ndvi_band = img[..., 0]
+        else:
+            ndvi_band = img
 
-            # Check that dataMask indicates valid pixels (band 1)
-            mask_stats = outputs.get("default", {}).get("bands", {}).get("1", {}).get("stats", {})
-            valid_pixels = mask_stats.get("mean", 1.0)
+        # Filter out NaN values
+        valid_mask = ~np.isnan(ndvi_band)
+        valid_pixels = valid_mask.sum()
 
-            if mean_value is not None and valid_pixels > 0.1:
-                valid_ndvi_values.append(mean_value)
-
-        if valid_ndvi_values:
-            # Use the most recent valid NDVI
-            ndvi = round(valid_ndvi_values[-1], 3)
+        if valid_pixels > 0:
+            mean_ndvi = float(ndvi_band[valid_mask].mean())
+            ndvi = round(mean_ndvi, 3)
             return ndvi, f"Sentinel-2 L2A ({date_from.strftime('%Y-%m-%d')} to {date_to.strftime('%Y-%m-%d')})"
 
-        # No data found - might be all clouds or no recent imagery
         return None, "no_valid_ndvi_found"
 
     except requests.exceptions.HTTPError as e:
@@ -170,7 +165,7 @@ def query_ndvi_for_city(lat, lon, token, days_back=14):
         return None, "timeout"
     except requests.exceptions.RequestException as e:
         return None, f"request_error: {str(e)[:50]}"
-    except (json.JSONDecodeError, KeyError, IndexError) as e:
+    except (ValueError, IndexError) as e:
         return None, f"parse_error: {str(e)[:50]}"
 
 
@@ -236,11 +231,9 @@ def get_ndvi(city_name, force_refresh=False):
         (ndvi_value, source) where ndvi_value is a float or None
         source describes the origin (real/estimated)
     """
-    # Normalise city name
     import unicodedata
     city_norm = unicodedata.normalize('NFKD', city_name).encode('ASCII', 'ignore').decode('utf-8')
 
-    # Map to known city names
     city_map = {unicodedata.normalize('NFKD', k).encode('ASCII', 'ignore').decode('utf-8').lower(): k
                 for k in CITY_COORDS}
     actual_city = city_map.get(city_norm.lower(), city_norm)
@@ -250,31 +243,24 @@ def get_ndvi(city_name, force_refresh=False):
     coords = CITY_COORDS[actual_city]
     cache = load_ndvi_cache()
 
-    # Check cache first
     if not force_refresh and actual_city in cache:
         entry = cache[actual_city]
         if is_cache_fresh(entry):
             return entry['ndvi'], f"cache ({entry['source']})"
 
-    # Query Copernicus API
     token = get_copernicus_token()
     if not token:
         return None, "no_auth_token"
 
-    # Rate limiting: 1 request per second max
     ndvi, source = query_ndvi_for_city(coords['lat'], coords['lon'], token)
 
     if ndvi is not None:
-        # Update cache
-        cache_entry = {
-            actual_city: {
-                'ndvi': ndvi,
-                'timestamp': datetime.now().isoformat(),
-                'source': source
-            }
-        }
         existing = load_ndvi_cache()
-        existing.update(cache_entry)
+        existing[actual_city] = {
+            'ndvi': ndvi,
+            'timestamp': datetime.now().isoformat(),
+            'source': source
+        }
         save_ndvi_cache(existing)
 
     return ndvi, source
@@ -296,7 +282,6 @@ def estimate_ndvi_seasonal(month, lat):
         11: 0.55, 12: 0.62
     }
 
-    # Latitude factor: southern Portugal is drier (lower NDVI)
     lat_factor = (lat - 37.0) * 0.05
 
     base_ndvi = ndvi_by_month.get(month, 0.45)
@@ -311,19 +296,18 @@ def get_ndvi_with_fallback(city_name, month=None, lat=None):
     1. Try Copernicus real NDVI
     2. Fall back to seasonal estimation
 
-    Returns (ndvi_value, source_tag) where source_tag is
-    'real' or 'estimated'.
+    Returns (ndvi_value, source_tag):
+        ('real', <ndvi>) when Copernicus provides data
+        ('estimated', <ndvi>) when using seasonal fallback
     """
     if month is None:
         month = datetime.now().month
 
-    # Try real NDVI from Copernicus
     ndvi, source = get_ndvi(city_name)
 
     if ndvi is not None:
         return ndvi, "real"
 
-    # Fallback to seasonal estimation
     if lat is None:
         import unicodedata
         city_norm = unicodedata.normalize('NFKD', city_name).encode('ASCII', 'ignore').decode('utf-8')
@@ -337,21 +321,20 @@ def get_ndvi_with_fallback(city_name, month=None, lat=None):
     return est_ndvi, "estimated"
 
 
-# Singleton cache for fast access in the API
 _ndvi_cache_memory = None
 _ndvi_cache_time = None
 
 
 def fetch_all_ndvi(force_refresh=False):
     """
-    Fetch NDVI for ALL Portuguese cities.
+    Fetch NDVI for ALL Portuguese cities from Copernicus Sentinel-2.
     Results are cached to CSV.
 
     Returns dict: {city_name: {ndvi: float, source: str}}
+                 source = 'real' (Copernicus) or 'estimated' (seasonal)
     """
     global _ndvi_cache_memory, _ndvi_cache_time
 
-    # Check in-memory cache first (refreshed every CACHE_TTL_HOURS)
     if not force_refresh and _ndvi_cache_memory and _ndvi_cache_time:
         if (datetime.now() - _ndvi_cache_time).total_seconds() < CACHE_TTL_HOURS * 3600:
             return _ndvi_cache_memory
@@ -375,19 +358,18 @@ def fetch_all_ndvi(force_refresh=False):
         ndvi, source = query_ndvi_for_city(coords['lat'], coords['lon'], token)
 
         if ndvi is not None:
-            results[city] = {'ndvi': ndvi, 'source': source}
+            results[city] = {'ndvi': ndvi, 'source': 'real'}
             success_count += 1
-            print(f"  ✅ {city}: NDVI={ndvi:.3f} ({source})")
+            print(f"  [{i+1}/{len(CITY_COORDS)}] {city}: NDVI={ndvi:.3f} (real)")
         else:
             month = datetime.now().month
             est = estimate_ndvi_seasonal(month, coords['lat'])
             results[city] = {'ndvi': est, 'source': 'estimated'}
             fallback_count += 1
-            print(f"  ⚠️ {city}: Copernicus unavailable ({source}), using seasonal estimate ({est:.3f})")
+            print(f"  [{i+1}/{len(CITY_COORDS)}] {city}: Copernicus unavailable ({source}), using seasonal ({est:.3f})")
 
-        # Rate limit: 1.5 seconds between requests (Copernicus free tier)
         if i < len(CITY_COORDS) - 1:
-            time.sleep(1.5)
+            time.sleep(0.5)
 
     # Save to CSV cache
     cache_data = {}
@@ -431,11 +413,14 @@ if __name__ == '__main__':
 
     results = fetch_all_ndvi(force_refresh=True)
 
-    print("\n📊 NDVI RESULTS:")
-    for city, data in sorted(results.items(), key=lambda x: x[1]['ndvi']):
-        source_icon = "🛰️" if 'Sentinel' in data.get('source', '') or 'cache' in data.get('source', '') else "📐"
-        print(f"  {source_icon} {city:20s}: {data['ndvi']:.3f} ({data.get('source', 'unknown')})")
+    print("\nNDVI RESULTS:")
+    print(f"{'City':20s} {'NDVI':6s} {'Source':10s}")
+    print("-" * 40)
+    for city in sorted(results, key=lambda c: results[c]['ndvi']):
+        data = results[city]
+        src_icon = "REAL" if data['source'] == 'real' else "EST"
+        print(f"  {city:20s} {data['ndvi']:.3f}  {src_icon}")
 
     print("\n" + "=" * 70)
-    print("✅ NDVI UPDATE COMPLETE!")
+    print("NDVI UPDATE COMPLETE!")
     print("=" * 70)
