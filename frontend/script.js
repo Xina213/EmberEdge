@@ -27,6 +27,214 @@ const ICONS = {
     satellite: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><path d="M2 12A10 10 0 0 1 12 2"/><path d="M10 14l-6 6"/><path d="M14 10l6-6"/><circle cx="12" cy="12" r="2"/></svg>'
 };
 
+// ===== TRADUCOES EN/PT =====
+const TRANSLATIONS = {
+    pt: {
+        'header-subtitle': 'Inteligência Artificial para Previsão de Incêndios',
+        'status-connected': 'Conectado',
+        'updated': 'Atualizado',
+        'fullscreen': 'Fullscreen',
+        'stats-title': 'Estatísticas',
+        'stats-subtitle': 'Tempo real',
+        'fires-title': 'Fogos Ativos',
+        'fires-subtitle': 'NASA FIRMS',
+        'risk-title': 'Áreas de Risco',
+        'risk-subtitle': 'AI Prediction',
+        'model-title': 'Modelo AI',
+        'model-subtitle': '91.4% Precisão',
+        'sim-title': 'Simulação Interativa',
+        'sim-subtitle': 'Teste Cenários',
+        'sim-desc': 'Ajuste os sliders e clique num distrito no mapa para simular condições meteorológicas e ver como o risco de incêndio se altera em tempo real.',
+        'sim-placeholder': 'Clique num distrito do mapa para simular',
+        'how-title': 'Como Funciona',
+        'how-subtitle': 'Pipeline de IA',
+        'step1-title': 'Recolha de Dados',
+        'step1-desc': 'NASA FIRMS (fogos em tempo real), OpenWeatherMap (meteo), ERA5 + ICNF (histórico 2000-2023), Copernicus Sentinel-2 (NDVI real por satélite).',
+        'step2-title': 'NDVI por Satélite',
+        'step2-desc': 'O NDVI real é calculado a partir das bandas B04 (vermelho) e B08 (infravermelho próximo) do Sentinel-2, processadas pela API do Copernicus Data Space.',
+        'step3-title': 'Treino do Modelo',
+        'step3-desc': 'Random Forest com 500 árvores, 8 features (NDVI, temperatura, humidade, vento, precipitação, mês, latitude, longitude), treinado com 5184 registos reais.',
+        'step4-title': 'Previsão em Tempo Real',
+        'step4-desc': 'IA prediz risco para 16+ cidades portuguesas com 91.4% de precisão.',
+        'step5-title': 'Visualização',
+        'step5-desc': 'Dashboard interativo com mapa, gráficos, alertas visuais e modo de simulação para testar cenários meteorológicos.',
+        'history-title': 'Histórico 7 Dias',
+        'history-subtitle': 'Evolução do risco Portugal',
+        'science-title': 'Ciência do Modelo',
+        'science-subtitle': 'Random Forest · Precisão: --',
+        'footer-desc': 'IA para Previsão de Incêndios Florestais',
+        'refresh-title': 'Atualizar Dados',
+        'theme-title': 'Alternar Tema',
+        'lang-title': 'English/Português',
+        'loading-text': 'A carregar dados...',
+        'status-updating': 'Atualizando dados...',
+        'status-updated': 'Dados atualizados',
+        'status-error': 'Erro ao carregar',
+        'no-fires': 'Nenhum fogo ativo no momento',
+        'last-check': 'Última verificação',
+        'calculating': 'A calcular...',
+        'sim-error': 'Erro ao simular. Tente novamente.',
+        'toggle-science': 'Expandir ciência do modelo',
+        'cm-baixo': 'Baixo',
+        'cm-medio': 'Médio',
+        'cm-alto': 'Alto',
+        'pred-baixo': 'Previsto Baixo',
+        'pred-medio': 'Previsto Médio',
+        'pred-alto': 'Previsto Alto',
+        'real-baixo': 'Real Baixo',
+        'real-medio': 'Real Médio',
+        'real-alto': 'Real Alto',
+        'team': 'Equipa',
+        'tech': 'Dados & Tech',
+        'data-tech': 'Dados: NASA FIRMS, ERA5, ICNF, OpenWeatherMap | Tech: Random Forest, Flask, Leaflet.js, Chart.js',
+        'school': 'Escola Secundária D. Maria II • Braga, Portugal',
+        'project-academic': 'Projeto Académico • Mostra Nacional de Ciência 2026',
+        'github': 'GitHub'
+    },
+    en: {
+        'header-subtitle': 'Artificial Intelligence for Wildfire Prediction',
+        'status-connected': 'Connected',
+        'updated': 'Updated',
+        'fullscreen': 'Fullscreen',
+        'stats-title': 'Statistics',
+        'stats-subtitle': 'Real time',
+        'fires-title': 'Active Fires',
+        'fires-subtitle': 'NASA FIRMS',
+        'risk-title': 'Risk Areas',
+        'risk-subtitle': 'AI Prediction',
+        'model-title': 'AI Model',
+        'model-subtitle': '91.4% Accuracy',
+        'sim-title': 'Interactive Simulation',
+        'sim-subtitle': 'Test Scenarios',
+        'sim-desc': 'Adjust the sliders and click a district on the map to simulate weather conditions and see how fire risk changes in real time.',
+        'sim-placeholder': 'Click a district on the map to simulate',
+        'how-title': 'How It Works',
+        'how-subtitle': 'AI Pipeline',
+        'step1-title': 'Data Collection',
+        'step1-desc': 'NASA FIRMS (real-time fires), OpenWeatherMap (weather), ERA5 + ICNF (historical 2000-2023), Copernicus Sentinel-2 (real NDVI by satellite).',
+        'step2-title': 'NDVI by Satellite',
+        'step2-desc': 'Real NDVI is calculated from Sentinel-2 bands B04 (red) and B08 (near infrared), processed through the Copernicus Data Space API.',
+        'step3-title': 'Model Training',
+        'step3-desc': 'Random Forest with 500 trees, 8 features (NDVI, temperature, humidity, wind, precipitation, month, latitude, longitude), trained on 5184 real records.',
+        'step4-title': 'Real-Time Prediction',
+        'step4-desc': 'AI predicts risk for 16+ Portuguese cities with 91.4% accuracy.',
+        'step5-title': 'Visualization',
+        'step5-desc': 'Interactive dashboard with map, charts, visual alerts and simulation mode to test weather scenarios.',
+        'history-title': '7-Day History',
+        'history-subtitle': 'Risk evolution Portugal',
+        'science-title': 'Model Science',
+        'science-subtitle': 'Random Forest · Accuracy: --',
+        'footer-desc': 'AI for Wildfire Prediction',
+        'refresh-title': 'Refresh Data',
+        'theme-title': 'Toggle Theme',
+        'lang-title': 'English/Português',
+        'loading-text': 'Loading data...',
+        'status-updating': 'Updating data...',
+        'status-updated': 'Data updated',
+        'status-error': 'Error loading data',
+        'no-fires': 'No active fires at the moment',
+        'last-check': 'Last check',
+        'calculating': 'Calculating...',
+        'sim-error': 'Simulation error. Try again.',
+        'toggle-science': 'Expand model science',
+        'cm-baixo': 'Low',
+        'cm-medio': 'Medium',
+        'cm-alto': 'High',
+        'pred-baixo': 'Predicted Low',
+        'pred-medio': 'Predicted Medium',
+        'pred-alto': 'Predicted High',
+        'real-baixo': 'Actual Low',
+        'real-medio': 'Actual Medium',
+        'real-alto': 'Actual High',
+        'team': 'Team',
+        'tech': 'Data & Tech',
+        'data-tech': 'Data: NASA FIRMS, ERA5, ICNF, OpenWeatherMap | Tech: Random Forest, Flask, Leaflet.js, Chart.js',
+        'school': 'Escola Secundária D. Maria II • Braga, Portugal',
+        'project-academic': 'Academic Project • National Science Fair 2026',
+        'github': 'GitHub'
+    }
+};
+
+let currentLang = localStorage.getItem('emberedge-lang') || 'pt';
+
+function applyLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('emberedge-lang', lang);
+
+    // Update data-i18n elements
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const text = TRANSLATIONS[lang] && TRANSLATIONS[lang][key];
+        if (text) {
+            el.textContent = text;
+        }
+    });
+
+    // Update lang toggle label
+    const langLabel = document.getElementById('lang-label');
+    if (langLabel) langLabel.textContent = lang === 'pt' ? 'PT' : 'EN';
+
+    // Update title attributes
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) refreshBtn.title = TRANSLATIONS[lang]['refresh-title'];
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) themeToggle.title = TRANSLATIONS[lang]['theme-title'];
+    const langToggle = document.getElementById('lang-toggle');
+    if (langToggle) langToggle.title = TRANSLATIONS[lang]['lang-title'];
+    const scienceToggle = document.getElementById('science-toggle');
+    if (scienceToggle) scienceToggle.title = TRANSLATIONS[lang]['toggle-science'];
+
+    // Update footer school/academic text
+    const schoolEl = document.querySelector('.school-name');
+    if (schoolEl) schoolEl.textContent = TRANSLATIONS[lang]['school'];
+    const academicEl = document.querySelector('.footer-copy');
+    if (academicEl) academicEl.textContent = '© 2026 • ' + TRANSLATIONS[lang]['project-academic'];
+    const githubEl = document.querySelector('.footer-link');
+    if (githubEl) githubEl.childNodes[githubEl.childNodes.length - 1].textContent = ' ' + TRANSLATIONS[lang]['github'];
+    const teamHeader = document.querySelectorAll('.footer-section h4')[1];
+    if (teamHeader) {
+        const svgClone = teamHeader.querySelector('svg');
+        teamHeader.innerHTML = svgClone ? svgClone.outerHTML : '';
+        teamHeader.innerHTML += ' ' + TRANSLATIONS[lang]['team'];
+    }
+    const techHeader = document.querySelectorAll('.footer-section h4')[2];
+    if (techHeader) {
+        const svgClone = techHeader.querySelector('svg');
+        techHeader.innerHTML = svgClone ? svgClone.outerHTML : '';
+        techHeader.innerHTML += ' ' + TRANSLATIONS[lang]['tech'];
+    }
+}
+
+function toggleLanguage() {
+    const newLang = currentLang === 'pt' ? 'en' : 'pt';
+    applyLanguage(newLang);
+}
+
+// ===== ANIMACOES SCROLL =====
+function initScrollAnimations() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    });
+
+    // Observe all animate-in elements
+    document.querySelectorAll('.animate-in').forEach(el => observer.observe(el));
+
+    // Observe chart container
+    const chartContainer = document.querySelector('.chart-container');
+    if (chartContainer) observer.observe(chartContainer);
+
+    // Observe footer
+    const footer = document.querySelector('.dashboard-footer');
+    if (footer) observer.observe(footer);
+}
+
 // ===== MAPEAMENTO DE NOMES (GeoJSON -> Cidades) =====
 const CITY_NAME_MAP = {
     'Santarem': 'Santarem',
@@ -47,6 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     loadAllData();
     setupEventListeners();
+    initScrollAnimations();
 
     // Auto-refresh a cada 5 minutos
     setInterval(loadAllData, 5 * 60 * 1000);
@@ -168,6 +377,15 @@ async function loadAllData() {
     if (loadedCount > 0) {
         updateStatus('Dados atualizados', true);
         updateLastUpdate();
+
+        // Hide loading screen with fade-out
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+            loadingScreen.classList.add('hidden');
+            setTimeout(() => {
+                loadingScreen.style.display = 'none';
+            }, 600);
+        }
     } else {
         updateStatus('Erro ao carregar', false);
     }
@@ -281,8 +499,9 @@ async function addDistrictLayer(weatherData) {
             style: {
                 fillColor: 'transparent',
                 fillOpacity: 0,
-                color: 'transparent',
-                weight: 0
+                color: '#475569',
+                weight: 0.8,
+                opacity: 0.5
             },
             onEachFeature: function(feature, layer) {
                 const districtName = feature.properties.NAME_1 || feature.properties.name;
@@ -386,8 +605,9 @@ async function addDistrictLayer(weatherData) {
                         this.setStyle({
                             fillColor: 'transparent',
                             fillOpacity: 0,
-                            color: 'transparent',
-                            weight: 0
+                            color: '#475569',
+                            weight: 0.8,
+                            opacity: 0.5
                         });
                         map.closePopup();
                     });
@@ -1186,6 +1406,15 @@ function setupEventListeners() {
             document.body.classList.toggle('light-mode');
         });
     }
+
+    // Language toggle
+    const langToggle = document.getElementById('lang-toggle');
+    if (langToggle) {
+        langToggle.addEventListener('click', toggleLanguage);
+    }
+
+    // Apply saved language on page load
+    applyLanguage(currentLang);
 }
 
 console.log('📊 EmberEdge Dashboard carregado');

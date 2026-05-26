@@ -4,7 +4,7 @@
 
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
-import os, csv, threading, time, json, unicodedata
+import os, csv, threading, time, json, unicodedata, requests
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from predict_risk import RiskPredictor, get_predictor, get_ndvi_for_city, estimate_ndvi, CITY_COORDS
@@ -528,9 +528,21 @@ def update_firms_data():
 # ===== MAIN =====
 
 
+# ===== KEEP-WARM (Render nao hiberna enquanto receber pings) =====
+def keep_warm():
+    port = int(os.environ.get('PORT', 5000))
+    while True:
+        time.sleep(600)  # 10 minutos
+        try:
+            requests.get(f"http://localhost:{port}/api/health", timeout=5)
+        except Exception:
+            pass  # falhou, tenta outra vez
+
+
 validate_env_keys()
 load_data()
 threading.Thread(target=update_firms_data, daemon=True).start()
+threading.Thread(target=keep_warm, daemon=True).start()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

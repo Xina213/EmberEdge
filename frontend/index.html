@@ -25,21 +25,39 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    
+
+<!-- ===== LOADING SCREEN ===== -->
+<div id="loading-screen" class="loading-screen">
+    <div class="loading-content">
+        <div class="loading-logo">
+            <img src="logo.png" alt="EmberEdge" class="loading-logo-img">
+        </div>
+        <h1 class="loading-title">EmberEdge</h1>
+        <p class="loading-subtitle">Inteligencia Artificial para Previsao de Incendios</p>
+        <div class="loading-spinner">
+            <div class="spinner-ring"></div>
+        </div>
+        <p class="loading-status" id="loading-status">A carregar dados...</p>
+        <div class="loading-dots">
+            <span></span><span></span><span></span>
+        </div>
+    </div>
+</div>
+
 <!-- ===== HEADER ===== -->
 <header>
     <div class="header-brand">
         <img src="logo.png" alt="EmberEdge Logo" class="logo-mini">
         <div class="brand-text">
             <span class="brand-name">EmberEdge</span>
-            <span class="brand-subtitle">Inteligência Artificial para Previsão de Incêndios</span>
+            <span class="brand-subtitle" data-i18n="header-subtitle">Inteligência Artificial para Previsão de Incêndios</span>
         </div>
     </div>
     
     <div class="header-right">
         <div class="status-indicator">
             <span class="status-dot"></span>
-            <span id="status-text">Conectado</span>
+            <span id="status-text" data-i18n="status-connected">Conectado</span>
         </div>
         
         <div class="last-update">
@@ -47,7 +65,7 @@
                 <circle cx="12" cy="12" r="10"/>
                 <polyline points="12 6 12 12 16 14"/>
             </svg>
-            Atualizado: <span id="last-update-time">--:--</span>
+            <span data-i18n="updated">Atualizado</span>: <span id="last-update-time">--:--</span>
         </div>
         
         <button id="refresh-btn" class="icon-btn" title="Atualizar Dados">
@@ -57,6 +75,10 @@
             </svg>
         </button>
         
+        <button id="lang-toggle" class="icon-btn lang-btn" title="English/Português">
+            <span id="lang-label">PT</span>
+        </button>
+
         <button id="theme-toggle" class="icon-btn" title="Alternar Tema">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -83,7 +105,7 @@
     <main class="container">
         
         <!-- ===== MAPA ===== -->
-<section class="map-section">
+<section class="map-section animate-in">
     <div class="section-header">
         <h2>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2" style="vertical-align: middle; margin-right: 8px;">
@@ -101,7 +123,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
                 <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
             </svg>
-            Fullscreen
+            <span data-i18n="fullscreen">Fullscreen</span>
         </button>
         <div id="map"></div>
     </div>
@@ -111,7 +133,7 @@
 <!-- ===== CARDS INFORMATIVOS ===== -->
 <div class="info-grid">
     <!-- Card 1: Estatísticas -->
-    <div class="card">
+    <div class="card animate-in delay-1">
         <div class="card-header">
             <div class="card-icon">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2">
@@ -120,8 +142,8 @@
                     <line x1="6" y1="20" x2="6" y2="14"/>
                 </svg>
             </div>
-            <h3>Estatísticas</h3>
-            <span class="card-subtitle">Tempo real</span>
+            <h3 data-i18n="stats-title">Estatísticas</h3>
+            <span class="card-subtitle" data-i18n="stats-subtitle">Tempo real</span>
         </div>
         <div class="card-body" id="stats-content">
             <div class="loading-skeleton">
@@ -133,14 +155,14 @@
     </div>
 
     <!-- Card 2: Fogos Ativos -->
-    <div class="card">
+    <div class="card animate-in delay-2">
         <div class="card-header">
             <div class="card-icon">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="#EF4444">
                     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
                 </svg>
             </div>
-            <h3>Fogos Ativos</h3>
+            <h3 data-i18n="fires-title">Fogos Ativos</h3>
             <span class="card-subtitle">NASA FIRMS</span>
         </div>
         <div class="card-body" id="fires-content">
@@ -152,7 +174,7 @@
     </div>
 
     <!-- Card 3: Áreas de Risco -->
-    <div class="card">
+    <div class="card animate-in delay-3">
         <div class="card-header">
             <div class="card-icon">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2">
@@ -161,8 +183,8 @@
                     <line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
             </div>
-            <h3>Áreas de Risco</h3>
-            <span class="card-subtitle">AI Prediction</span>
+            <h3 data-i18n="risk-title">Áreas de Risco</h3>
+            <span class="card-subtitle" data-i18n="risk-subtitle">AI Prediction</span>
         </div>
         <div class="card-body" id="risk-cities-content">
             <div class="loading-skeleton">
@@ -173,7 +195,7 @@
     </div>
 
     <!-- Card 4: Modelo AI -->
-    <div class="card">
+    <div class="card animate-in delay-4">
         <div class="card-header">
             <div class="card-icon">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2">
@@ -181,8 +203,8 @@
                     <path d="M12 6l2 4 4 1-5-3-3-4z"/>
                 </svg>
             </div>
-            <h3>Modelo AI</h3>
-            <span class="card-subtitle">91.4% Precisão</span>
+            <h3 data-i18n="model-title">Modelo AI</h3>
+            <span class="card-subtitle" data-i18n="model-subtitle">91.4% Precisão</span>
         </div>
         <div class="card-body" id="model-content">
             <div class="model-stats">
@@ -240,7 +262,7 @@
 </div>
 
 <!-- ===== SIMULACAO INTERATIVA ===== -->
-<section class="simulation-section">
+<section class="simulation-section animate-in">
     <div class="card" id="simulation-card">
         <div class="card-header">
             <div class="card-icon">
@@ -250,8 +272,8 @@
                     <line x1="9" y1="21" x2="9" y2="9"/>
                 </svg>
             </div>
-            <h3>Simulação Interativa</h3>
-            <span class="card-subtitle">Teste Cenários</span>
+            <h3 data-i18n="sim-title">Simulação Interativa</h3>
+            <span class="card-subtitle" data-i18n="sim-subtitle">Teste Cenários</span>
         </div>
         <div class="card-body">
             <p style="color: var(--color-text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
@@ -296,7 +318,7 @@
 </section>
 
 <!-- ===== HOW IT WORKS ===== -->
-<section class="how-it-works-section">
+<section class="how-it-works-section animate-in">
     <div class="card">
         <div class="card-header">
             <div class="card-icon">
@@ -306,44 +328,44 @@
                     <path d="M2 12l10 5 10-5"/>
                 </svg>
             </div>
-            <h3>Como Funciona</h3>
-            <span class="card-subtitle">Pipeline de IA</span>
+            <h3 data-i18n="how-title">Como Funciona</h3>
+            <span class="card-subtitle" data-i18n="how-subtitle">Pipeline de IA</span>
         </div>
         <div class="card-body">
             <div class="pipeline-steps">
                 <div class="step">
                     <div class="step-icon">1</div>
                     <div class="step-content">
-                        <h4>Recolha de Dados</h4>
-                        <p>NASA FIRMS (fogos em tempo real), OpenWeatherMap (meteo), ERA5 + ICNF (histórico 2000-2023), <strong>Copernicus Sentinel-2 (NDVI real por satélite)</strong>.</p>
+                        <h4 data-i18n="step1-title">Recolha de Dados</h4>
+                        <p data-i18n="step1-desc">NASA FIRMS (fogos em tempo real), OpenWeatherMap (meteo), ERA5 + ICNF (histórico 2000-2023), <strong>Copernicus Sentinel-2 (NDVI real por satélite)</strong>.</p>
                     </div>
                 </div>
                 <div class="step">
                     <div class="step-icon">2</div>
                     <div class="step-content">
-                        <h4>NDVI por Satélite</h4>
-                        <p>O <strong>NDVI real</strong> é calculado a partir das bandas B04 (vermelho) e B08 (infravermelho próximo) do Sentinel-2, processadas pela API do Copernicus Data Space. Quando indisponível (nuvens, sem revisita recente), usa estimativa sazonal.</p>
+                        <h4 data-i18n="step2-title">NDVI por Satélite</h4>
+                        <p data-i18n="step2-desc">O <strong>NDVI real</strong> é calculado a partir das bandas B04 (vermelho) e B08 (infravermelho próximo) do Sentinel-2, processadas pela API do Copernicus Data Space. Quando indisponível (nuvens, sem revisita recente), usa estimativa sazonal.</p>
                     </div>
                 </div>
                 <div class="step">
                     <div class="step-icon">3</div>
                     <div class="step-content">
-                        <h4>Treino do Modelo</h4>
-                        <p>Random Forest com 500 árvores, 8 features (NDVI, temperatura, humidade, vento, precipitação, mês, latitude, longitude), treinado com 5184 registos reais.</p>
+                        <h4 data-i18n="step3-title">Treino do Modelo</h4>
+                        <p data-i18n="step3-desc">Random Forest com 500 árvores, 8 features (NDVI, temperatura, humidade, vento, precipitação, mês, latitude, longitude), treinado com 5184 registos reais.</p>
                     </div>
                 </div>
                 <div class="step">
                     <div class="step-icon">4</div>
                     <div class="step-content">
-                        <h4>Previsão em Tempo Real</h4>
-                        <p>IA prediz risco para 16+ cidades portuguesas com 91.4% de precisão. Compara previsão com NDVI real vs. estimado para mostrar o impacto dos dados de satélite.</p>
+                        <h4 data-i18n="step4-title">Previsão em Tempo Real</h4>
+                        <p data-i18n="step4-desc">IA prediz risco para 16+ cidades portuguesas com 91.4% de precisão. Compara previsão com NDVI real vs. estimado para mostrar o impacto dos dados de satélite.</p>
                     </div>
                 </div>
                 <div class="step">
                     <div class="step-icon">5</div>
                     <div class="step-content">
-                        <h4>Visualização</h4>
-                        <p>Dashboard interativo com mapa, gráficos, alertas visuais e <strong>modo de simulação</strong> para testar cenários meteorológicos.</p>
+                        <h4 data-i18n="step5-title">Visualização</h4>
+                        <p data-i18n="step5-desc">Dashboard interativo com mapa, gráficos, alertas visuais e <strong>modo de simulação</strong> para testar cenários meteorológicos.</p>
                     </div>
                 </div>
             </div>
@@ -360,8 +382,8 @@
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                 </svg>
             </div>
-            <h3>Histórico 7 Dias</h3>
-            <span class="card-subtitle">Evolução do risco Portugal</span>
+            <h3 data-i18n="history-title">Histórico 7 Dias</h3>
+            <span class="card-subtitle" data-i18n="history-subtitle">Evolução do risco Portugal</span>
         </div>
         <div class="card-body">
             <div class="chart-container">
@@ -381,8 +403,8 @@
                     <path d="M12 6v6l4 2"/>
                 </svg>
             </div>
-            <h3>Ciencia do Modelo</h3>
-            <span class="card-subtitle" id="model-science-subtitle">Random Forest &middot; Precisao: --</span>
+            <h3 data-i18n="science-title">Ciencia do Modelo</h3>
+            <span class="card-subtitle" id="model-science-subtitle" data-i18n="science-subtitle">Random Forest &middot; Precisao: --</span>
             <button class="science-toggle" id="science-toggle" onclick="toggleScience()" aria-label="Expandir ciencia do modelo">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="6 9 12 15 18 9"/>
@@ -494,7 +516,7 @@
                 </svg>
                 EmberEdge
             </h4>
-            <p class="footer-desc">IA para Previsão de Incêndios Florestais</p>
+            <p class="footer-desc" data-i18n="footer-desc">IA para Previsão de Incêndios Florestais</p>
             <p class="footer-copy">© 2026 • Projeto Académico • Escola Sec. D. Maria II</p>
             <a href="https://github.com/Xina213/EmberEdge" target="_blank" class="footer-link">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 6px;">
