@@ -3,7 +3,7 @@
    JavaScript COMPLETO - Leaflet + Chart.js + API Integration
    ============================================================ */
 
-// ===== CONFIGURACAO =====
+// ===== CONFIGURAÇÃO =====
 const API_BASE = window.location.origin + '/api';
 let map = null;
 let markers = [];
@@ -40,7 +40,7 @@ const CITY_NAME_MAP = {
     'Portalegre': 'Portalegre'
 };
 
-// ===== INICIALIZACAO =====
+// ===== INICIALIZAÇÃO =====
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🔥 EmberEdge Dashboard iniciando...');
 
@@ -296,73 +296,88 @@ async function addDistrictLayer(weatherData) {
                     }
                 }
 
-                if (cityData && cityWeather) {
-                    layer.on('mouseover', async function(e) {
-                        try {
-                            const risk = await fetchAPI('/risk/' + encodeURIComponent(cityData));
-                            const color = getRiskColor(risk.risk_value);
+                                if (cityData && cityWeather) {
+                    layer._hoverReqId = 0;
 
-                            this.setStyle({
-                                fillColor: color,
-                                fillOpacity: 0.35,
-                                color: color,
-                                weight: 2
-                            });
+                    layer.on('mouseover', function(e) {
+                        const reqId = ++this._hoverReqId;
 
-                            const isRealNdvi = risk.ndvi_source && risk.ndvi_source.includes('real');
-                            const ndviBadgeClass = isRealNdvi ? 'ndvi-real-badge' : 'ndvi-est-badge';
-                            const ndviBadgeText = isRealNdvi ? 'SATELITE' : 'ESTIMADO';
+                        this._hoverTimer = setTimeout(async () => {
+                            if (this._hoverReqId !== reqId) return;
 
-                            const ndviSection = risk.ndvi !== undefined
-                                ? `<div style="margin: 8px 0; font-size: 0.82rem; color: #6b7280;">
-                                        ${ICONS.satellite}<strong>NDVI: ${risk.ndvi.toFixed(3)}</strong>
-                                        <span class="${ndviBadgeClass}">${ndviBadgeText}</span>
-                                        <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">
-                                            ${isRealNdvi
-                                                ? 'Dados reais do satelite Copernicus Sentinel-2'
-                                                : 'Estimativa sazonal (satelite indisponivel)'}
-                                        </div>
-                                        ${risk.ndvi_comparison ? `
-                                        <div style="margin-top: 4px; padding: 4px 8px; background: rgba(16,185,129,0.08); border-radius: 4px; font-size: 0.75rem;">
-                                            <span style="color:#10B981;">Impacto do NDVI real:</span>
-                                            Risco estimado sem satelite: <strong>${risk.ndvi_comparison.estimated_risk_level}</strong>
-                                            (NDVI estimado: ${risk.ndvi_comparison.estimated_ndvi.toFixed(3)})
-                                        </div>` : ''}
-                                    </div>`
-                                : '';
+                            map.closePopup();
 
-                            const popup = L.popup()
-                                .setLatLng(e.latlng)
-                                .setContent(`
-                                    <div style="font-family: Inter, sans-serif; min-width: 240px;">
-                                        <strong style="font-size: 1.2rem; color: ${color};">${cityData}</strong>
-                                        <hr style="margin: 8px 0; border: none; border-top: 1px solid #e5e7eb;">
-                                        <div style="margin: 10px 0;">
-                                            <strong>Risco:</strong><br>
-                                            <span style="background: ${color}; color: white; padding: 4px 12px; border-radius: 6px; font-weight: bold; display: inline-block; margin-top: 4px;">
-                                                ${risk.risk_level}
-                                            </span>
+                            try {
+                                const risk = await fetchAPI('/risk/' + encodeURIComponent(cityData));
+                                if (this._hoverReqId !== reqId) return;
+
+                                const color = getRiskColor(risk.risk_value);
+
+                                this.setStyle({
+                                    fillColor: color,
+                                    fillOpacity: 0.35,
+                                    color: color,
+                                    weight: 2
+                                });
+
+                                const isRealNdvi = risk.ndvi_source && risk.ndvi_source.includes('real');
+                                const ndviBadgeClass = isRealNdvi ? 'ndvi-real-badge' : 'ndvi-est-badge';
+                                const ndviBadgeText = isRealNdvi ? 'SATÉLITE' : 'ESTIMADO';
+
+                                const ndviSection = risk.ndvi !== undefined
+                                    ? `<div style="margin: 8px 0; font-size: 0.82rem; color: #6b7280;">
+                                            ${ICONS.satellite}<strong>NDVI: ${risk.ndvi.toFixed(3)}</strong>
+                                            <span class="${ndviBadgeClass}">${ndviBadgeText}</span>
+                                            <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">
+                                                ${isRealNdvi
+                                                    ? 'Dados reais do satélite Copernicus Sentinel-2'
+                                                    : 'Estimativa sazonal (satélite indisponível)'}
+                                            </div>
+                                            ${risk.ndvi_comparison ? `
+                                            <div style="margin-top: 4px; padding: 4px 8px; background: rgba(16,185,129,0.08); border-radius: 4px; font-size: 0.75rem;">
+                                                <span style="color:#10B981;">Impacto do NDVI real:</span>
+                                                Risco estimado sem satélite: <strong>${risk.ndvi_comparison.estimated_risk_level}</strong>
+                                                (NDVI estimado: ${risk.ndvi_comparison.estimated_ndvi.toFixed(3)})
+                                            </div>` : ''}
+                                        </div>`
+                                    : '';
+
+                                const popup = L.popup()
+                                    .setLatLng(e.latlng)
+                                    .setContent(`
+                                        <div style="font-family: Inter, sans-serif; min-width: 240px;">
+                                            <strong style="font-size: 1.2rem; color: ${color};">${cityData}</strong>
+                                            <hr style="margin: 8px 0; border: none; border-top: 1px solid #e5e7eb;">
+                                            <div style="margin: 10px 0;">
+                                                <strong>Risco:</strong><br>
+                                                <span style="background: ${color}; color: white; padding: 4px 12px; border-radius: 6px; font-weight: bold; display: inline-block; margin-top: 4px;">
+                                                    ${risk.risk_level}
+                                                </span>
+                                            </div>
+                                            <div style="margin: 10px 0; font-size: 0.85rem; color: #6b7280;">
+                                                ${ICONS.target}<strong>Confiança: ${risk.confidence.toFixed(1)}%</strong>
+                                            </div>
+                                            ${ndviSection}
+                                            <hr style="margin: 8px 0; border: none; border-top: 1px solid #e5e7eb;">
+                                            <div style="font-size: 0.85rem; color: #6b7280;">
+                                                ${ICONS.temp}${cityWeather.temperature.toFixed(1)}C |
+                                                ${ICONS.wind}${cityWeather.wind_speed.toFixed(1)} km/h<br>
+                                                ${ICONS.humidity}${cityWeather.humidity.toFixed(0)}% |
+                                                ${ICONS.area}${cityWeather.precipitation.toFixed(1)} mm
+                                            </div>
                                         </div>
-                                        <div style="margin: 10px 0; font-size: 0.85rem; color: #6b7280;">
-                                            ${ICONS.target}Confiança: <strong>${risk.confidence.toFixed(1)}%</strong>
-                                        </div>
-                                        ${ndviSection}
-                                        <hr style="margin: 8px 0; border: none; border-top: 1px solid #e5e7eb;">
-                                        <div style="font-size: 0.85rem; color: #6b7280;">
-                                            ${ICONS.temp}${cityWeather.temperature.toFixed(1)}°C |
-                                            ${ICONS.wind}${cityWeather.wind_speed.toFixed(1)} km/h<br>
-                                            ${ICONS.humidity}${cityWeather.humidity.toFixed(0)}% |
-                                            ${ICONS.area}${cityWeather.precipitation.toFixed(1)} mm
-                                        </div>
-                                    </div>
-                                `)
-                                .openOn(map);
-                        } catch (error) {
-                            console.error('❌ Erro ao buscar risco:', error);
-                        }
+                                    `)
+                                    .openOn(map);
+                            } catch (error) {
+                                console.error('Erro ao buscar risco:', error);
+                            }
+                        }, 150);
                     });
 
                     layer.on('mouseout', function() {
+                        this._hoverReqId++;
+                        clearTimeout(this._hoverTimer);
+
                         this.setStyle({
                             fillColor: 'transparent',
                             fillOpacity: 0,
@@ -371,10 +386,6 @@ async function addDistrictLayer(weatherData) {
                         });
                         map.closePopup();
                     });
-
-                    layer.on('click', function() {
-                        simSelectedCity = cityData;
-                        document.getElementById('simulation-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
                         runSimulation(cityData);
                     });
 
@@ -469,6 +480,15 @@ async function displayInvisibleMarkers(weatherData) {
     console.log('✅ ' + markers.length + ' marcadores invisiveis criados');
 }
 
+// ===== DEBOUNCE =====
+function debounce(fn, ms) {
+    let timer = null;
+    return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), ms);
+    };
+}
+
 // ===== FETCH API =====
 async function fetchAPI(endpoint, timeoutMs = 15000) {
     try {
@@ -509,6 +529,15 @@ function updateStatus(text, isSuccess) {
     }
 }
 
+function formatActiveHours(value) {
+    if (!value || value === '0') return 'Tempo desconhecido';
+    if (typeof value === 'string' && value.includes('UTC')) {
+        const time = value.replace(' UTC', '');
+        return `Detetado as ${time}`;
+    }
+    return `${value}h ativo`;
+}
+
 function updateLastUpdate() {
     const now = new Date();
     const timeStr = now.toLocaleTimeString('pt-PT', {
@@ -538,7 +567,7 @@ function renderSourceTimestamps(timestamps) {
     const sources = [
         { key: 'fires', label: 'Fogos', dot: 'red' },
         { key: 'weather', label: 'Meteo', dot: 'yellow' },
-        { key: 'stats', label: 'Estatisticas', dot: 'green' },
+        { key: 'stats', label: 'Estatísticas', dot: 'green' },
         { key: 'risk', label: 'Risco', dot: 'yellow' }
     ];
 
@@ -584,6 +613,19 @@ function updateStats(stats) {
     `;
 
     document.getElementById('stats-content').innerHTML = html;
+
+    // Update model accuracy display from API data
+    if (data.model_accuracy) {
+        const accDisplay = document.getElementById('model-accuracy-display');
+        if (accDisplay) {
+            accDisplay.textContent = data.model_accuracy.toFixed(1) + '%';
+        }
+        // Also update card subtitle
+        const accSubtitle = document.querySelector('.card-header .card-subtitle');
+        if (accSubtitle && accSubtitle.textContent.includes('%')) {
+            accSubtitle.textContent = data.model_accuracy.toFixed(1) + '% Precisão';
+        }
+    }
 }
 
 // ===== FOGOS ATIVOS COM ICONES SVG =====
@@ -612,7 +654,7 @@ function displayFires(firesData) {
                 </div>
                 <div class="fire-details">
                     <small>
-                        ${ICONS.clock}${fire.active_hours || 0}h ativo |
+                        ${ICONS.clock}${formatActiveHours(fire.active_hours)} |
                         ${ICONS.temp}${fire.temperature || 600}°C |
                         ${ICONS.location}${parseFloat(fire.latitude).toFixed(3)}, ${parseFloat(fire.longitude).toFixed(3)}
                     </small>
@@ -738,7 +780,7 @@ function displayFiresOnMap(firesData) {
                 <hr style="margin: 8px 0;">
                 <strong>${fire.city || 'Desconhecido'}</strong><br>
                 ${ICONS.area}${fire.area_hectares || 0} ha queimados<br>
-                ${ICONS.clock}${fire.active_hours || 0}h ativo<br>
+                ${ICONS.clock}${formatActiveHours(fire.active_hours)}<br>
                 ${ICONS.temp}${fire.temperature || 600}°C
             </div>
         `);
@@ -932,7 +974,7 @@ async function runSimulation(cityName) {
         let ndviImpactHtml = '';
         if (risk.ndvi_comparison) {
             ndviImpactHtml = `<div class="sim-result-ndvi-impact">
-                ${ICONS.satellite} Impacto do NDVI real: risco sem satelite seria <strong>${risk.ndvi_comparison.estimated_risk_level}</strong>
+                ${ICONS.satellite} Impacto do NDVI real: risco sem satélite seria <strong>${risk.ndvi_comparison.estimated_risk_level}</strong>
                 (NDVI real ${risk.ndvi.toFixed(3)} vs estimado ${risk.ndvi_comparison.estimated_ndvi.toFixed(3)})
             </div>`;
         }
@@ -984,7 +1026,8 @@ function setupEventListeners() {
         });
     }
 
-    // Simulation slider listeners
+    // Simulation slider listeners (debounced 300ms to avoid API spam)
+    const debouncedSim = debounce((city) => runSimulation(city), 300);
     const simSliders = ['sim-temp', 'sim-humidity', 'sim-wind'];
     simSliders.forEach(id => {
         const slider = document.getElementById(id);
@@ -993,7 +1036,7 @@ function setupEventListeners() {
             slider.addEventListener('input', () => {
                 display.textContent = slider.value;
                 if (simSelectedCity) {
-                    runSimulation(simSelectedCity);
+                    debouncedSim(simSelectedCity);
                 }
             });
         }

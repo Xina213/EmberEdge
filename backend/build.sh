@@ -34,7 +34,7 @@ python fetch_weather.py || echo "[WARN] Weather fetch failed - will retry on sta
 # Fetch NDVI from Copernicus (if available)
 echo ""
 echo "[BUILD] Fetching NDVI data..."
-python fetch_ndvi.py || echo "[WARN] NDVI fetch failed - will retry on startup"
+python sentinel_ndvi.py || echo "[WARN] NDVI fetch failed - will retry on startup"
 
 echo ""
 echo "=========================================="

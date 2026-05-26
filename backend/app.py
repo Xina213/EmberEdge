@@ -454,6 +454,18 @@ def update_firms_data():
             fetch_current_weather()
             fetch_forecast()
             print("[OK] Meteorologia OWM atualizada")
+
+            # NDVI from Copernicus (once per cycle)
+            print("\n[NDVI] Atualizando NDVI via Copernicus Sentinel-2...")
+            try:
+                from sentinel_ndvi import fetch_all_ndvi
+                ndvi_data = fetch_all_ndvi(force_refresh=False)
+                if ndvi_data:
+                    real_count = sum(1 for v in ndvi_data.values() if v.get('source') == 'real')
+                    print(f"[NDVI] OK: {real_count} cidades com dados reais, {len(ndvi_data) - real_count} estimadas")
+            except Exception as ndvi_err:
+                print(f"[NDVI] Erro: {ndvi_err}")
+
         except Exception as e:
             print(f"[ERR] Erro update: {e}")
         time.sleep(30 * 60)
