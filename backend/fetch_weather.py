@@ -137,14 +137,30 @@ def fetch_forecast():
 
 
 def _simulated_weather(city, coords):
-    """Fallback simulated weather data"""
+    """Fallback simulated weather data — month-aware"""
     import random
     random.seed(int(datetime.now().strftime('%Y%m%d%H')) + hash(city) % 1000)
+
+    month = datetime.now().month
+    # Temperature range varies by season for realistic demo data
+    if 6 <= month <= 9:       # Summer: hot
+        temp_range = (22, 42)
+        humidity_range = (20, 65)
+    elif 4 <= month <= 5:     # Late spring: warm
+        temp_range = (18, 36)
+        humidity_range = (30, 75)
+    elif 10 <= month <= 11:   # Autumn: mild
+        temp_range = (14, 28)
+        humidity_range = (40, 85)
+    else:                     # Winter: cool
+        temp_range = (6, 20)
+        humidity_range = (50, 95)
+
     return {
         'city': city,
-        'temperature': round(random.uniform(16, 34), 1),
-        'humidity': random.randint(30, 85),
-        'wind_speed': round(random.uniform(5, 35), 1),
+        'temperature': round(random.uniform(*temp_range), 1),
+        'humidity': random.randint(*humidity_range),
+        'wind_speed': round(random.uniform(5, 40), 1),
         'precipitation': 0,
         'latitude': coords['lat'],
         'longitude': coords['lon'],
