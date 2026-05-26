@@ -204,6 +204,13 @@ class RiskPredictor:
             prediction = self.model.predict(features)[0]
             probabilities = self.model.predict_proba(features)[0]
 
+            # Safety override: extreme conditions the model never saw in training
+            # Random Forest doesn't extrapolate; these rules catch edge cases
+            if temperature >= 40 or (temperature >= 35 and humidity <= 20) or (temperature >= 30 and humidity <= 15 and wind_speed >= 40):
+                prediction = 2  # Alto
+            elif temperature >= 30 and humidity <= 30 and prediction < 1:
+                prediction = 1  # Medio (at least)
+
             result = {
                 'risk_level': self.risk_labels[prediction],
                 'risk_value': int(prediction),
