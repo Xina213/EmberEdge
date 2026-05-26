@@ -83,45 +83,7 @@ CITY_COORDS = {
     'Barreiro': {'lat': 38.66, 'lon': -9.07},
 }
 
-# Load NDVI cache on import (lazy, for fallback only)
-_ndvi_cache = None
-_ndvi_cache_loaded = False
-
-
-def _load_ndvi_cache():
-    """Load the NDVI cache CSV into memory."""
-    global _ndvi_cache, _ndvi_cache_loaded
-    if _ndvi_cache_loaded:
-        return _ndvi_cache
-
-    _ndvi_cache_loaded = True
-    cache_path = os.path.join(BASE_DIR, '..', 'data', 'ndvi_cache.csv')
-
-    if not os.path.exists(cache_path):
-        _ndvi_cache = {}
-        return _ndvi_cache
-
-    try:
-        import csv
-        _ndvi_cache = {}
-        cache_ttl = 24 * 3600  # 24 hours
-        now = datetime.now()
-
-        with open(cache_path, 'r', encoding='utf-8') as f:
-            for row in csv.DictReader(f):
-                try:
-                    cached_time = datetime.fromisoformat(row['timestamp'])
-                    age = (now - cached_time).total_seconds()
-                    if age < cache_ttl:
-                        _ndvi_cache[row['city']] = float(row['ndvi'])
-                except (ValueError, KeyError):
-                    continue
-    except Exception:
-        _ndvi_cache = {}
-
-    return _ndvi_cache
-
-
+# NDVI via sentinel_ndvi (real Copernicus data with seasonal fallback)
 def estimate_ndvi(month, lat):
     """
     Estimate NDVI based on seasonal patterns (Portugal vegetation cycle).
@@ -146,25 +108,24 @@ def estimate_ndvi(month, lat):
 def get_ndvi_for_city(city_name, month=None, lat=None):
     """
     Get NDVI for a city using the cache chain:
-    1. Check Copernicus real NDVI cache (24h TTL)
+    1. Real Copernicus Sentinel-2 data (via sentinel_ndvi)
     2. Fall back to seasonal estimation
 
-    Returns (ndvi_value, is_real) where is_real is True for cached Copernicus data.
+    Returns (ndvi_value, is_real) where is_real is True for Copernicus data.
     """
     if month is None:
         month = datetime.now().month
 
-    # Step 1: Try real NDVI cache
-    cache = _load_ndvi_cache()
-    import unicodedata
-    city_norm = unicodedata.normalize('NFKD', city_name).encode('ASCII', 'ignore').decode('utf-8')
+    # Use sentinel_ndvi module (real Copernicus data with fallback)
+    try:
+        from sentinel_ndvi import get_ndvi_with_fallback
+        ndvi, source = get_ndvi_with_fallback(city_name, month, lat)
+        if source == "real":
+            return ndvi, True
+    except Exception:
+        pass
 
-    for cached_city, cached_ndvi in cache.items():
-        cached_norm = unicodedata.normalize('NFKD', cached_city).encode('ASCII', 'ignore').decode('utf-8')
-        if cached_norm.lower() == city_norm.lower():
-            return cached_ndvi, True
-
-    # Step 2: Fallback to seasonal estimation
+    # Fallback to seasonal estimation
     if lat is None:
         coords = CITY_COORDS.get(normalize_city(city_name), {'lat': 40.0})
         lat = coords['lat']

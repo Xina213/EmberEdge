@@ -9,6 +9,7 @@ let map = null;
 let markers = [];
 let historyChart = null;
 let districtLayer = null;
+let simSelectedCity = null;
 
 // ===== ICONES SVG =====
 const ICONS = {
@@ -85,7 +86,7 @@ function initMap() {
             </div>
             <div class="legend-item">
                 <span style="display:inline-block;width:100px;height:10px;background:linear-gradient(to right,#0000ff,#00ff00,#ffff00,#ff0000);margin-right:8px;"></span>
-                <span>Heatmap</span>
+                <span>Mapa de Calor</span>
             </div>
             <div class="legend-item">
                 <span style="color:#EF4444;margin-right:4px;">■</span><span style="color:#F59E0B;margin-right:4px;">■</span><span style="color:#10B981;">■</span>
@@ -104,35 +105,65 @@ async function loadAllData() {
     console.log('📡 Carregando dados...');
     updateStatus('Atualizando dados...', false);
 
-    try {
-        // Buscar tudo em paralelo (4 chamadas em vez de 5 — risk/all substitui calls individuais)
-        console.log('📡 Fetching all APIs...');
-        const [stats, fires, weather, history, riskAll] = await Promise.all([
-            fetchAPI('/stats').then(d => { console.log('✅ /stats loaded'); return d; }),
-            fetchAPI('/fires').then(d => { console.log('✅ /fires loaded'); return d; }),
-            fetchAPI('/weather').then(d => { console.log('✅ /weather loaded'); return d; }),
-            fetchAPI('/history').then(d => { console.log('✅ /history loaded'); return d; }),
-            fetchAPI('/risk/all').then(d => { console.log('✅ /risk/all loaded'); return d; })
-        ]);
+    console.log('📡 Fetching all APIs...');
 
+    // Fetch each API individually so one failure doesn't break the whole dashboard
+    const [stats, fires, weather, history, riskAll] = await Promise.all([
+        fetchAPI('/stats').then(d => { console.log('✅ /stats loaded'); return d; }).catch(e => { console.error('❌ /stats failed:', e); return null; }),
+        fetchAPI('/fires').then(d => { console.log('✅ /fires loaded'); return d; }).catch(e => { console.error('❌ /fires failed:', e); return null; }),
+        fetchAPI('/weather').then(d => { console.log('✅ /weather loaded'); return d; }).catch(e => { console.error('❌ /weather failed:', e); return null; }),
+        fetchAPI('/history').then(d => { console.log('✅ /history loaded'); return d; }).catch(e => { console.error('❌ /history failed:', e); return null; }),
+        fetchAPI('/risk/all').then(d => { console.log('✅ /risk/all loaded'); return d; }).catch(e => { console.error('❌ /risk/all failed:', e); return null; })
+    ]);
+
+    // Graceful degradation: only update sections that loaded successfully
+    let loadedCount = 0;
+    let timestamps = {};
+
+    if (stats && stats.status === 'success') {
         updateStats(stats);
+        timestamps.stats = stats.timestamp || stats.data?.last_update;
+        document.getElementById('stats-content').closest('.card').classList.remove('card-offline');
+        loadedCount++;
+    } else {
+        document.getElementById('stats-content').closest('.card').classList.add('card-offline');
+    }
+    if (fires && fires.status === 'success') {
         displayFires(fires);
-        displayRiskCities(riskAll, weather);
-        plotHistory(history);
         displayFiresOnMap(fires);
+        timestamps.fires = fires.timestamp;
+        document.getElementById('fires-content').closest('.card').classList.remove('card-offline');
+        loadedCount++;
+    } else {
+        document.getElementById('fires-content').closest('.card').classList.add('card-offline');
+    }
+    if (weather && weather.status === 'success') {
         await addDistrictLayer(weather);
-
-        // Verificar alertas de risco alto
+        timestamps.weather = weather.timestamp;
+        loadedCount++;
+    }
+    if (riskAll && riskAll.status === 'success') {
+        displayRiskCities(riskAll, weather || { data: {} });
         checkAlerts(riskAll);
-
-        // Mostrar heatmap de risco
         displayHeatmap(riskAll);
+        timestamps.risk = riskAll.timestamp;
+        document.getElementById('risk-cities-content').closest('.card').classList.remove('card-offline');
+        loadedCount++;
+    } else {
+        document.getElementById('risk-cities-content').closest('.card').classList.add('card-offline');
+    }
+    if (history && Object.keys(history).length > 0) {
+        plotHistory(history);
+        loadedCount++;
+    }
 
+    // Show per-source timestamps
+    renderSourceTimestamps(timestamps);
+
+    if (loadedCount > 0) {
         updateStatus('Dados atualizados', true);
         updateLastUpdate();
-
-    } catch (error) {
-        console.error('❌ Erro carregar dados:', error);
+    } else {
         updateStatus('Erro ao carregar', false);
     }
 }
@@ -202,20 +233,42 @@ function displayHeatmap(riskAll) {
 }
 
 // ===== CAMADA DE DISTRITOS PORTUGAL (HOVER) =====
+const GEOJSON_URLS = [
+    '/api/districts.geojson',
+    'https://raw.githubusercontent.com/codeforgermany/click_that_hood/master/public/data/portugal.geojson',
+    'https://raw.githubusercontent.com/datasets/geo-portugal/master/data/districts.geojson',
+    'https://raw.githubusercontent.com/centraldedados/portugal-geojson/master/portugal.geojson'
+];
+
+async function fetchGeoJSON() {
+    for (const url of GEOJSON_URLS) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            const resp = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data && data.features && data.features.length > 0) {
+                    console.log('GeoJSON loaded from: ' + url.substring(0, 60) + '...');
+                    return data;
+                }
+            }
+        } catch (e) {
+            console.log('GeoJSON fallback: ' + url.substring(0, 50) + '... (' + (e.message || 'error') + ')');
+        }
+    }
+    return null;
+}
+
 async function addDistrictLayer(weatherData) {
-    console.log('🗺️ Adicionando camada de distritos...');
+    console.log('Carregando camada de distritos...');
 
     try {
-        // Tenta carregar local primeiro, depois fallback para URL externo
-        let response;
-        try {
-            response = await fetch('/api/districts.geojson');
-            if (!response.ok) throw new Error('Local GeoJSON not available');
-        } catch (e) {
-            console.log('⚠️ Local GeoJSON not found, trying remote...');
-            response = await fetch('https://raw.githubusercontent.com/codeforgermany/click_that_hood/master/public/data/portugal.geojson');
+        const geoData = await fetchGeoJSON();
+        if (!geoData) {
+            throw new Error('All GeoJSON sources failed');
         }
-        const geoData = await response.json();
 
         const cities = weatherData.data;
 
@@ -256,14 +309,32 @@ async function addDistrictLayer(weatherData) {
                                 weight: 2
                             });
 
-                            const ndviBadge = risk.ndvi !== undefined
-                                ? `<br><span style="font-size:0.8rem;color:${risk.ndvi > 0.4 ? '#10B981' : (risk.ndvi > 0.2 ? '#F59E0B' : '#EF4444')};">${ICONS.satellite}NDVI: ${risk.ndvi.toFixed(3)} (${risk.ndvi_source || 'unknown'})</span>`
+                            const isRealNdvi = risk.ndvi_source && risk.ndvi_source.includes('real');
+                            const ndviBadgeClass = isRealNdvi ? 'ndvi-real-badge' : 'ndvi-est-badge';
+                            const ndviBadgeText = isRealNdvi ? 'SATELITE' : 'ESTIMADO';
+
+                            const ndviSection = risk.ndvi !== undefined
+                                ? `<div style="margin: 8px 0; font-size: 0.82rem; color: #6b7280;">
+                                        ${ICONS.satellite}<strong>NDVI: ${risk.ndvi.toFixed(3)}</strong>
+                                        <span class="${ndviBadgeClass}">${ndviBadgeText}</span>
+                                        <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">
+                                            ${isRealNdvi
+                                                ? 'Dados reais do satelite Copernicus Sentinel-2'
+                                                : 'Estimativa sazonal (satelite indisponivel)'}
+                                        </div>
+                                        ${risk.ndvi_comparison ? `
+                                        <div style="margin-top: 4px; padding: 4px 8px; background: rgba(16,185,129,0.08); border-radius: 4px; font-size: 0.75rem;">
+                                            <span style="color:#10B981;">Impacto do NDVI real:</span>
+                                            Risco estimado sem satelite: <strong>${risk.ndvi_comparison.estimated_risk_level}</strong>
+                                            (NDVI estimado: ${risk.ndvi_comparison.estimated_ndvi.toFixed(3)})
+                                        </div>` : ''}
+                                    </div>`
                                 : '';
 
                             const popup = L.popup()
                                 .setLatLng(e.latlng)
                                 .setContent(`
-                                    <div style="font-family: Inter, sans-serif; min-width: 220px;">
+                                    <div style="font-family: Inter, sans-serif; min-width: 240px;">
                                         <strong style="font-size: 1.2rem; color: ${color};">${cityData}</strong>
                                         <hr style="margin: 8px 0; border: none; border-top: 1px solid #e5e7eb;">
                                         <div style="margin: 10px 0;">
@@ -273,8 +344,9 @@ async function addDistrictLayer(weatherData) {
                                             </span>
                                         </div>
                                         <div style="margin: 10px 0; font-size: 0.85rem; color: #6b7280;">
-                                            ${ICONS.target}Confianca: <strong>${risk.confidence.toFixed(1)}%</strong>${ndviBadge}
+                                            ${ICONS.target}Confiança: <strong>${risk.confidence.toFixed(1)}%</strong>
                                         </div>
+                                        ${ndviSection}
                                         <hr style="margin: 8px 0; border: none; border-top: 1px solid #e5e7eb;">
                                         <div style="font-size: 0.85rem; color: #6b7280;">
                                             ${ICONS.temp}${cityWeather.temperature.toFixed(1)}°C |
@@ -298,6 +370,12 @@ async function addDistrictLayer(weatherData) {
                             weight: 0
                         });
                         map.closePopup();
+                    });
+
+                    layer.on('click', function() {
+                        simSelectedCity = cityData;
+                        document.getElementById('simulation-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        runSimulation(cityData);
                     });
 
                     layer.on('mouseover', function() {
@@ -392,19 +470,29 @@ async function displayInvisibleMarkers(weatherData) {
 }
 
 // ===== FETCH API =====
-async function fetchAPI(endpoint) {
+async function fetchAPI(endpoint, timeoutMs = 15000) {
     try {
-        const response = await fetch(`${API_BASE}${endpoint}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
-            console.error(`❌ API Error: ${response.status} at ${endpoint}`);
+            console.error(`API Error: ${response.status} at ${endpoint}`);
             throw new Error(`HTTP ${response.status}: ${endpoint}`);
         }
 
         const data = await response.json();
         return data;
     } catch (error) {
-        console.error(`❌ Fetch failed for ${endpoint}:`, error);
+        if (error.name === 'AbortError') {
+            console.error(`Timeout ${endpoint} (>${timeoutMs}ms)`);
+        } else {
+            console.error(`Fetch failed for ${endpoint}:`, error);
+        }
         throw error;
     }
 }
@@ -429,6 +517,39 @@ function updateLastUpdate() {
     });
     const el = document.getElementById('last-update-time');
     if (el) el.textContent = timeStr;
+}
+
+function timeAgo(isoString) {
+    if (!isoString) return null;
+    const now = new Date();
+    const then = new Date(isoString);
+    const diffSec = Math.floor((now - then) / 1000);
+    if (diffSec < 60) return 'agora';
+    if (diffSec < 3600) return `ha ${Math.floor(diffSec / 60)}min`;
+    if (diffSec < 86400) return `ha ${Math.floor(diffSec / 3600)}h`;
+    const days = Math.floor(diffSec / 86400);
+    return `ha ${days}d`;
+}
+
+function renderSourceTimestamps(timestamps) {
+    const container = document.getElementById('source-timestamps');
+    if (!container) return;
+
+    const sources = [
+        { key: 'fires', label: 'Fogos', dot: 'red' },
+        { key: 'weather', label: 'Meteo', dot: 'yellow' },
+        { key: 'stats', label: 'Estatisticas', dot: 'green' },
+        { key: 'risk', label: 'Risco', dot: 'yellow' }
+    ];
+
+    let html = '';
+    for (const src of sources) {
+        const ago = timeAgo(timestamps[src.key]);
+        if (ago) {
+            html += `<span class="source-timestamp"><span class="ts-dot ${src.dot}"></span>${src.label}: ${ago}</span>`;
+        }
+    }
+    container.innerHTML = html;
 }
 
 // ===== ESTATISTICAS COM ICONES SVG =====
@@ -550,7 +671,7 @@ function displayRiskCities(riskAllData, weatherData) {
         const riskColor = colors[city.risk_value] || '#94A3B8';
 
         const ndviColor = city.ndvi > 0.4 ? '#10B981' : (city.ndvi > 0.2 ? '#F59E0B' : '#EF4444');
-        const ndviIcon = city.ndvi_source === 'real' ? ICONS.satellite : '';
+        const ndviIcon = city.ndvi_source?.includes('real') ? ICONS.satellite : '';
 
         html += `
             <li class="risk-item" style="border-left: 4px solid ${riskColor};">
@@ -782,7 +903,55 @@ function plotHistory(historyData) {
         }
     });
 
-    console.log('✅ Grafico historico criado');
+    console.log('Grafico historico criado');
+}
+
+// ===== SIMULACAO INTERATIVA =====
+async function runSimulation(cityName) {
+    const simResult = document.getElementById('sim-result');
+    if (!cityName) {
+        simResult.innerHTML = `<div class="sim-result-placeholder">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.5">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+            <p>Clique num distrito do mapa para simular</p>
+        </div>`;
+        return;
+    }
+
+    const temp = document.getElementById('sim-temp').value;
+    const humidity = document.getElementById('sim-humidity').value;
+    const wind = document.getElementById('sim-wind').value;
+
+    simResult.innerHTML = '<div style="color: var(--color-text-muted);">A calcular...</div>';
+
+    try {
+        const risk = await fetchAPI(`/risk/${encodeURIComponent(cityName)}?temperature=${temp}&humidity=${humidity}&wind_speed=${wind}`, 10000);
+        const color = getRiskColor(risk.risk_value);
+
+        let ndviImpactHtml = '';
+        if (risk.ndvi_comparison) {
+            ndviImpactHtml = `<div class="sim-result-ndvi-impact">
+                ${ICONS.satellite} Impacto do NDVI real: risco sem satelite seria <strong>${risk.ndvi_comparison.estimated_risk_level}</strong>
+                (NDVI real ${risk.ndvi.toFixed(3)} vs estimado ${risk.ndvi_comparison.estimated_ndvi.toFixed(3)})
+            </div>`;
+        }
+
+        simResult.innerHTML = `<div class="sim-result-active">
+            <div class="sim-result-city">${cityName}</div>
+            <div class="sim-result-risk" style="background: ${color};">${risk.risk_level}</div>
+            <div class="sim-result-details">
+                <span>Confiança: ${risk.confidence.toFixed(1)}%</span>
+                <span>NDVI: ${risk.ndvi.toFixed(3)} (${risk.ndvi_source || 'N/A'})</span>
+            </div>
+            <div class="sim-result-details">
+                <span>${risk.temperature.toFixed(1)}C / ${risk.humidity.toFixed(0)}% / ${wind} km/h</span>
+            </div>
+            ${ndviImpactHtml}
+        </div>`;
+    } catch (error) {
+        simResult.innerHTML = '<div style="color: #EF4444; font-size: 0.85rem;">Erro ao simular. Tente novamente.</div>';
+    }
 }
 
 // ===== EVENT LISTENERS =====
@@ -790,7 +959,7 @@ function setupEventListeners() {
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => {
-            console.log('🔄 Refresh manual');
+            console.log('Refresh manual');
             loadAllData();
         });
     }
@@ -804,9 +973,9 @@ function setupEventListeners() {
             const isFullscreen = mapContainer.classList.toggle('fullscreen');
 
             if (isFullscreen) {
-                fullscreenBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg> Exit Fullscreen';
+                fullscreenBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg> Sair do Ecra Completo';
             } else {
-                fullscreenBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> Fullscreen';
+                fullscreenBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> Ecra Completo';
             }
 
             setTimeout(() => {
@@ -814,6 +983,21 @@ function setupEventListeners() {
             }, 300);
         });
     }
+
+    // Simulation slider listeners
+    const simSliders = ['sim-temp', 'sim-humidity', 'sim-wind'];
+    simSliders.forEach(id => {
+        const slider = document.getElementById(id);
+        const display = document.getElementById(id + '-value');
+        if (slider && display) {
+            slider.addEventListener('input', () => {
+                display.textContent = slider.value;
+                if (simSelectedCity) {
+                    runSimulation(simSelectedCity);
+                }
+            });
+        }
+    });
 
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {

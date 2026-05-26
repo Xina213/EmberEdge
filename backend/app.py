@@ -35,12 +35,12 @@ def validate_env_keys():
             missing.append((key, url))
 
     if missing:
-        print("\n⚠️  KEYS EM FALTA NO .env / RENDER ENVIRONMENT:")
+        print("\n[AVISO] KEYS EM FALTA NO .env / RENDER ENVIRONMENT:")
         for key, url in missing:
-            print(f"   ❌ {key} -> obtém em: {url}")
-        print("   Algumas funcionalidades estarão indisponíveis.\n")
+            print(f"   [FALTA] {key} -> obtem em: {url}")
+        print("   Algumas funcionalidades estarao indisponiveis.\n")
     else:
-        print("✅ Todas as API keys configuradas\n")
+        print("[OK] Todas as API keys configuradas\n")
     return len(missing) == 0
 
 
@@ -83,7 +83,7 @@ def load_csv(filepath):
                 for row in csv.DictReader(f):
                     data.append(row)
     except Exception as e:
-        print(f"❌ Erro carregar {filepath}: {e}")
+        print(f"[ERR] Erro carregar {filepath}: {e}")
     return data
 
 
@@ -92,7 +92,7 @@ def load_data():
     global fires_list, weather_list
     fires_list   = load_csv(FIRES_FILE)
     weather_list = load_csv(WEATHER_FILE)
-    print(f"📊 Dados carregados: {len(fires_list)} fogos, {len(weather_list)} cidades")
+    print(f" Dados carregados: {len(fires_list)} fogos, {len(weather_list)} cidades")
 
 
 
@@ -175,13 +175,24 @@ def get_risk_city(city):
         wd = next((w for w in current_weather if unicodedata.normalize('NFKD', w['city']).encode('ASCII', 'ignore').decode('utf-8').lower()==city_norm), None)
         if not wd:
             return jsonify({'error':f'City {city} not found','available_cities':[w['city'] for w in weather_list]}), 404
+
+        # Support query params for simulation mode (override weather values)
+        from flask import request
+        sim_temp = request.args.get('temperature')
+        sim_humidity = request.args.get('humidity')
+        sim_wind = request.args.get('wind_speed')
+
         result = ai_integration.predict(
             city_name=city,
-            temperature=wd['temperature'],
-            humidity=wd['humidity'],
-            wind_speed=wd['wind_speed'],
-            precipitation=wd.get('precipitation',0)
+            temperature=float(sim_temp) if sim_temp is not None else float(wd['temperature']),
+            humidity=float(sim_humidity) if sim_humidity is not None else float(wd['humidity']),
+            wind_speed=float(sim_wind) if sim_wind is not None else float(wd['wind_speed']),
+            precipitation=float(wd.get('precipitation',0))
         )
+
+        # Add simulation flag
+        if sim_temp is not None or sim_humidity is not None or sim_wind is not None:
+            result['simulation'] = True
         return jsonify(result)
     except Exception as e:
         return jsonify({'error':str(e)}), 500
@@ -423,14 +434,14 @@ def internal_error(e):
 def update_firms_data():
     while True:
         try:
-            print("\n🔄 Atualizando NASA FIRMS...")
+            print("\n Atualizando NASA FIRMS...")
             import subprocess
             r = subprocess.run(['python', 'fetch_nasa_firms.py'],
                 capture_output=True, text=True, cwd=os.path.dirname(__file__))
             if r.returncode == 0:
-                print("✅ NASA FIRMS ok")
+                print("[OK] NASA FIRMS ok")
             else:
-                print(f"⚠️ NASA FIRMS stderr:\n{r.stderr}")
+                print(f"[!] NASA FIRMS stderr:\n{r.stderr}")
             if r.stdout:
                 print(r.stdout)
 
@@ -438,13 +449,13 @@ def update_firms_data():
             try:
                 enrich_fires_with_real_area()
             except Exception as frp_err:
-                print(f"⚠️  FRP enrichment falhou (usando estimativa): {frp_err}")
+                print(f"[!]  FRP enrichment falhou (usando estimativa): {frp_err}")
 
             fetch_current_weather()
             fetch_forecast()
-            print("✅ Meteorologia OWM atualizada")
+            print("[OK] Meteorologia OWM atualizada")
         except Exception as e:
-            print(f"❌ Erro update: {e}")
+            print(f"[ERR] Erro update: {e}")
         time.sleep(30 * 60)
 
 
@@ -459,9 +470,9 @@ threading.Thread(target=update_firms_data, daemon=True).start()
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print("\n" + "="*60)
-    print("🔥 EMBEREDGE DASHBOARD BACKEND API")
+    print(" EMBEREDGE DASHBOARD BACKEND API")
     print("="*60)
-    print(f"📊 Fogos: {len(load_csv(FIRES_FILE))} | 🌡️ Cidades: {len(load_csv(WEATHER_FILE))} | 🤖 AI: {'✅' if predictor.model else '❌'}")
+    print(f" Fogos: {len(load_csv(FIRES_FILE))} | 🌡️ Cidades: {len(load_csv(WEATHER_FILE))} | 🤖 AI: {'[OK]' if predictor.model else '[ERR]'}")
     print(f"🌐 Porta: {port}")
     print("="*60 + "\n")
     app.run(debug=False, port=port, host='0.0.0.0', use_reloader=False)

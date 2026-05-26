@@ -52,6 +52,38 @@ def predict_with_historical(city_name, temperature, humidity, wind_speed, precip
         ndvi_value = result.get('ndvi', None)
         ndvi_source = result.get('ndvi_source', 'unknown')
 
+        # === NDVI IMPACT COMPARISON ===
+        # Make a second prediction WITHOUT real NDVI (using estimated only)
+        # to show how much the real satellite data changes the prediction
+        from predict_risk import estimate_ndvi, CITY_COORDS, normalize_city
+        import unicodedata
+
+        city_normalized = normalize_city(city_name)
+        ndvi_comparison = None
+
+        if ndvi_source and 'real' in ndvi_source:
+            try:
+                coords = CITY_COORDS.get(city_normalized, {'lat': 40.0})
+                est_ndvi = estimate_ndvi(current_month, coords['lat'])
+                est_result = predictor.predict(
+                    temperature=temperature,
+                    humidity=humidity,
+                    wind_speed=wind_speed,
+                    precipitation=precipitation,
+                    city_name=city_name,
+                    month=current_month,
+                    ndvi=est_ndvi
+                )
+                ndvi_comparison = {
+                    'estimated_ndvi': est_ndvi,
+                    'estimated_risk_level': est_result['risk_level'],
+                    'estimated_risk_value': est_result['risk_value'],
+                    'estimated_confidence': est_result['confidence'],
+                    'ndvi_difference': round(ndvi_value - est_ndvi, 3) if ndvi_value else None
+                }
+            except Exception as ndvi_err:
+                print(f"[NDVI] Comparison error for {city_name}: {ndvi_err}")
+
         # Build clean response
         response = {
             'risk_level': result['risk_level'],
@@ -65,11 +97,12 @@ def predict_with_historical(city_name, temperature, humidity, wind_speed, precip
             'humidity': humidity,
             'ndvi': ndvi_value,
             'ndvi_source': ndvi_source,
+            'ndvi_comparison': ndvi_comparison,
             'historical': get_historical_fires_by_city(result.get('city', city_name), current_month)
         }
         return response
     except Exception as e:
-        print(f"❌ Erro predict_with_historical: {e}")
+        print(f"Erro predict_with_historical: {e}")
         return {'risk_level':'Medio','risk_value':1,'confidence':50.0,'city':city_name,'error':str(e),'ndvi':0.5,'ndvi_source':'error_fallback'}
 
 
