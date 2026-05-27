@@ -406,6 +406,15 @@ def get_ndvi_for_all_cities():
     return results
 
 
+def get_ndvi_cache_simple():
+    """
+    Returns raw NDVI cache as {city_name: ndvi_value} (no freshness check).
+    Used by predict_risk.py for offset-adjusted seasonal estimation.
+    """
+    cache = load_ndvi_cache()
+    return {city: info['ndvi'] for city, info in cache.items()}
+
+
 if __name__ == '__main__':
     print("=" * 70)
     print("EMBEREDGE - REAL NDVI FROM COPERNICUS SENTINEL-2")

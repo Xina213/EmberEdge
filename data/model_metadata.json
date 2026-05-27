@@ -1,11 +1,11 @@
 {
   "accuracy": 0.9103,
   "accuracy_pct": 91.0,
-  "auc_macro": 0.964,
+  "auc_macro": 0.981,
   "auc_per_class": {
-    "baixo": 0.993,
-    "medio": 0.970,
-    "alto": 0.972
+    "baixo": 0.983,
+    "medio": 0.971,
+    "alto": 0.991
   },
   "n_trees": 500,
   "n_features": 8,
@@ -20,16 +20,16 @@
     "ndvi"
   ],
   "feature_importance": {
-    "temperature": 0.2315,
-    "humidity": 0.075,
-    "wind_speed": 0.0564,
-    "precipitation": 0.0576,
-    "month": 0.2137,
-    "lat": 0.1746,
-    "lon": 0.0954,
-    "ndvi": 0.0958
+    "temperature": 0.2038,
+    "humidity": 0.0583,
+    "wind_speed": 0.0481,
+    "precipitation": 0.0468,
+    "month": 0.1944,
+    "lat": 0.1283,
+    "lon": 0.0823,
+    "ndvi": 0.2381
   },
-  "training_date": "2026-05-27T18:55:36.282645",
+  "training_date": "2026-05-27T20:46:08.662082",
   "n_samples": 5184,
   "class_distribution": {
     "baixo": 1106,
@@ -38,33 +38,33 @@
   },
   "class_metrics": {
     "baixo": {
-      "precision": 0.8233,
-      "recall": 0.991,
-      "f1_score": 0.8994,
+      "precision": 0.8178,
+      "recall": 0.9955,
+      "f1_score": 0.898,
       "support": 221
     },
     "medio": {
-      "precision": 0.9232,
-      "recall": 0.9007,
-      "f1_score": 0.9118,
+      "precision": 0.9315,
+      "recall": 0.8914,
+      "f1_score": 0.911,
       "support": 534
     },
     "alto": {
-      "precision": 0.976,
-      "recall": 0.8652,
-      "f1_score": 0.9173,
+      "precision": 0.965,
+      "recall": 0.8794,
+      "f1_score": 0.9202,
       "support": 282
     }
   },
   "confusion_matrix": {
     "baixo": {
       "baixo": {
-        "count": 219,
-        "pct": 99.1
+        "count": 220,
+        "pct": 99.5
       },
       "medio": {
-        "count": 2,
-        "pct": 0.9
+        "count": 1,
+        "pct": 0.5
       },
       "alto": {
         "count": 0,
@@ -73,16 +73,16 @@
     },
     "medio": {
       "baixo": {
-        "count": 47,
-        "pct": 8.8
+        "count": 49,
+        "pct": 9.2
       },
       "medio": {
-        "count": 481,
-        "pct": 90.1
+        "count": 476,
+        "pct": 89.1
       },
       "alto": {
-        "count": 6,
-        "pct": 1.1
+        "count": 9,
+        "pct": 1.7
       }
     },
     "alto": {
@@ -91,12 +91,12 @@
         "pct": 0.0
       },
       "medio": {
-        "count": 38,
-        "pct": 13.5
+        "count": 34,
+        "pct": 12.1
       },
       "alto": {
-        "count": 244,
-        "pct": 86.5
+        "count": 248,
+        "pct": 87.9
       }
     }
   },

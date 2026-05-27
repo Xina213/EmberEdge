@@ -15,7 +15,9 @@ from datetime import datetime
 
 import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, '..', 'data', 'risk_model.pkl')
+DATA_DIR = os.path.join(BASE_DIR, '..', 'data')
+MODEL_PATH = os.path.join(DATA_DIR, 'risk_model.pkl')
+FIRE_BURDEN_PATH = os.path.join(DATA_DIR, 'fire_burden.json')
 
 # Mapping of city names to coordinates
 CITY_ALIASES = {
@@ -83,33 +85,38 @@ CITY_COORDS = {
     'Barreiro': {'lat': 38.66, 'lon': -9.07},
 }
 
+# Load fire burden from training data, or fallback
+FIRE_BURDEN = {}
+if os.path.exists(FIRE_BURDEN_PATH):
+    import json
+    with open(FIRE_BURDEN_PATH, 'r') as f:
+        FIRE_BURDEN = json.load(f)
+
+
+def get_fire_burden(city_name):
+    """Get fire burden for a city, default 0.5 for unknown cities."""
+    return FIRE_BURDEN.get(normalize_city(city_name), 0.5)
+
+
 # NDVI via sentinel_ndvi (real Copernicus data with seasonal fallback)
-def estimate_ndvi(month, lat):
+def estimate_ndvi(month, lat, fire_burden=0.5):
     """
-    Estimate NDVI based on seasonal patterns (Portugal vegetation cycle).
-    Used when real Copernicus NDVI is unavailable.
+    Estimate NDVI matching train_model.py formula:
+    fire_burden dominated + city_baseline × seasonal interaction.
 
-    Summer (6-9): low NDVI = dry vegetation = higher fire risk
-    Winter/Spring (11-4): higher NDVI = green vegetation = lower risk
+    The real Copernicus baseline is added separately by get_ndvi_for_city().
     """
-    ndvi_by_month = {
-        1: 0.65, 2: 0.60, 3: 0.55, 4: 0.50, 5: 0.45,
-        6: 0.35, 7: 0.25, 8: 0.22, 9: 0.30, 10: 0.45,
-        11: 0.55, 12: 0.62
-    }
-
-    # Latitude factor: south is drier (lower NDVI)
-    lat_factor = (lat - 37.0) * 0.05
-    ndvi = ndvi_by_month.get(month, 0.45) - lat_factor
-
-    return round(max(-0.1, min(1.0, ndvi)), 3)
+    seasonal = 0.50 - 0.50 * np.cos((month - 1) * 2 * np.pi / 12)
+    ndvi = fire_burden * 0.80 + seasonal * 0.20
+    return round(max(0.05, min(0.95, ndvi)), 3)
 
 
 def get_ndvi_for_city(city_name, month=None, lat=None):
     """
     Get NDVI for a city using the cache chain:
     1. Real Copernicus Sentinel-2 data (via sentinel_ndvi)
-    2. Fall back to seasonal estimation
+    2. Offset-adjusted seasonal estimate (cache snapshot + seasonal cycle)
+    3. Pure seasonal estimate with fire burden
 
     Returns (ndvi_value, is_real) where is_real is True for Copernicus data.
     """
@@ -125,12 +132,34 @@ def get_ndvi_for_city(city_name, month=None, lat=None):
     except Exception:
         pass
 
-    # Fallback to seasonal estimation
     if lat is None:
         coords = CITY_COORDS.get(normalize_city(city_name), {'lat': 40.0})
         lat = coords['lat']
 
-    ndvi = estimate_ndvi(month, lat)
+    burden = get_fire_burden(city_name)
+
+    # If we have a cached NDVI value, compute city offset from May estimate
+    try:
+        from sentinel_ndvi import get_ndvi_cache_simple
+        cache = get_ndvi_cache_simple()
+        city_norm = normalize_city(city_name)
+        if city_norm in cache:
+            cached_ndvi = cache[city_norm]
+            may_estimate = estimate_ndvi(5, lat, burden)
+            city_offset = cached_ndvi - may_estimate
+            ndvi = estimate_ndvi(month, lat, burden) + city_offset
+            return round(max(0.05, min(0.95, ndvi)), 3), True
+        for cached_city, cached_ndvi_val in cache.items():
+            if normalize_city(cached_city) == city_norm:
+                may_estimate = estimate_ndvi(5, lat, burden)
+                city_offset = cached_ndvi_val - may_estimate
+                ndvi = estimate_ndvi(month, lat, burden) + city_offset
+                return round(max(-0.05, min(1.0, ndvi)), 3), True
+    except Exception:
+        pass
+
+    # Pure seasonal fallback
+    ndvi = estimate_ndvi(month, lat, burden)
     return ndvi, False
 
 
