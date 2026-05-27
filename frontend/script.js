@@ -41,7 +41,7 @@ const TRANSLATIONS = {
         'risk-title': 'Áreas de Risco',
         'risk-subtitle': 'AI Prediction',
         'model-title': 'Modelo AI',
-        'model-subtitle': '91.4% Precisão',
+        'model-subtitle': '91.0% Precisao',
         'sim-title': 'Simulação Interativa',
         'sim-subtitle': 'Teste Cenários',
         'sim-desc': 'Ajuste os sliders e clique num distrito no mapa para simular condições meteorológicas e ver como o risco de incêndio se altera em tempo real.',
@@ -55,7 +55,7 @@ const TRANSLATIONS = {
         'step3-title': 'Treino do Modelo',
         'step3-desc': 'Random Forest com 500 árvores, 8 features (NDVI, temperatura, humidade, vento, precipitação, mês, latitude, longitude), treinado com 5184 registos reais.',
         'step4-title': 'Previsão em Tempo Real',
-        'step4-desc': 'IA prediz risco para 16+ cidades portuguesas com 91.4% de precisão.',
+        'step4-desc': 'IA prediz risco para 16+ cidades portuguesas com 91.0% de precisao.',
         'step5-title': 'Visualização',
         'step5-desc': 'Dashboard interativo com mapa, gráficos, alertas visuais e modo de simulação para testar cenários meteorológicos.',
         'history-title': 'Histórico 7 Dias',
@@ -103,7 +103,7 @@ const TRANSLATIONS = {
         'risk-title': 'Risk Areas',
         'risk-subtitle': 'AI Prediction',
         'model-title': 'AI Model',
-        'model-subtitle': '91.4% Accuracy',
+        'model-subtitle': '91.0% Accuracy',
         'sim-title': 'Interactive Simulation',
         'sim-subtitle': 'Test Scenarios',
         'sim-desc': 'Adjust the sliders and click a district on the map to simulate weather conditions and see how fire risk changes in real time.',
@@ -117,7 +117,7 @@ const TRANSLATIONS = {
         'step3-title': 'Model Training',
         'step3-desc': 'Random Forest with 500 trees, 8 features (NDVI, temperature, humidity, wind, precipitation, month, latitude, longitude), trained on 5184 real records.',
         'step4-title': 'Real-Time Prediction',
-        'step4-desc': 'AI predicts risk for 16+ Portuguese cities with 91.4% accuracy.',
+        'step4-desc': 'AI predicts risk for 16+ Portuguese cities with 91.0% accuracy.',
         'step5-title': 'Visualization',
         'step5-desc': 'Interactive dashboard with map, charts, visual alerts and simulation mode to test weather scenarios.',
         'history-title': '7-Day History',
@@ -272,7 +272,7 @@ async function wakeBackend() {
     while (Date.now() - wakeUpStart < maxWait) {
         await new Promise(r => setTimeout(r, 3000));
         const elapsed = Math.round((Date.now() - wakeUpStart) / 1000);
-        if (loadingStatus) loadingStatus.textContent = `A acordo servidor... (${elapsed}s)`;
+        if (loadingStatus) loadingStatus.textContent = `A acordar o servidor... (${elapsed}s)`;
         if (await check()) {
             if (loadingStatus) loadingStatus.textContent = 'Servidor pronto!';
             return true;
@@ -1412,6 +1412,7 @@ function renderModelScience(data) {
     document.getElementById('sci-samples').textContent = data.n_samples ? data.n_samples.toLocaleString() : '--';
 
     renderAUC(data);
+    updateModelCard(data);
     renderConfusionMatrix(data.confusion_matrix);
     renderFeatureImportance(data.feature_importance, data.feature_names);
     renderClassMetrics(data.class_metrics);
@@ -1453,6 +1454,41 @@ function renderConfusionMatrix(cm) {
                 }
             }
         }
+    }
+}
+
+function updateModelCard(modelData) {
+    // Update model card feature importance bars
+    const container = document.getElementById('model-card-features');
+    if (!container || !modelData.feature_importance) return;
+
+    const barColors = ['bar-green', 'bar-blue', 'bar-purple', 'bar-orange', 'bar-red', 'bar-teal', 'bar-indigo', 'bar-pink'];
+    const sorted = Object.entries(modelData.feature_importance)
+        .map(([name, imp]) => ({ name, importance: imp }))
+        .sort((a, b) => b.importance - a.importance);
+    const maxImp = sorted[0] ? sorted[0].importance : 1;
+
+    let html = '<h4>Importancia das Variaveis</h4>';
+    sorted.forEach((item, idx) => {
+        const pct = (item.importance * 100).toFixed(1);
+        const width = (item.importance / maxImp) * 100;
+        const colorClass = barColors[idx % barColors.length];
+        const nameDisplay = item.name.charAt(0).toUpperCase() + item.name.slice(1).replace('_', ' ');
+        html += `
+            <div class="feature-bar">
+                <span class="feature-name">${nameDisplay}</span>
+                <div class="bar-container"><div class="bar ${colorClass}" style="width:${width}%"></div></div>
+                <span class="feature-value">${pct}%</span>
+            </div>`;
+    });
+    container.innerHTML = html;
+
+    // Update most important stat
+    const mostStat = document.getElementById('model-stat-most-important');
+    const mostLabel = document.getElementById('model-stat-most-label');
+    if (mostStat && sorted.length > 0) {
+        mostStat.textContent = (sorted[0].importance * 100).toFixed(1) + '%';
+        mostLabel.textContent = sorted[0].name + ' (mais importante)';
     }
 }
 

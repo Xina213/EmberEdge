@@ -204,7 +204,7 @@
                 </svg>
             </div>
             <h3 data-i18n="model-title">Modelo AI</h3>
-            <span class="card-subtitle" data-i18n="model-subtitle">91.4% Precisão</span>
+            <span class="card-subtitle" data-i18n="model-subtitle">91.0% Precisao</span>
         </div>
         <div class="card-body" id="model-content">
             <div class="model-stats">
@@ -213,12 +213,12 @@
                     <span class="model-stat-label">Árvores</span>
                 </div>
                 <div class="model-stat">
-                    <span class="model-stat-value" id="model-accuracy-display">91.4%</span>
+                    <span class="model-stat-value" id="model-accuracy-display">91.0%</span>
                     <span class="model-stat-label">Precisão</span>
                 </div>
                 <div class="model-stat">
-                    <span class="model-stat-value">32%</span>
-                    <span class="model-stat-label">NDVI (mais importante)</span>
+                    <span class="model-stat-value" id="model-stat-most-important">--</span>
+                    <span class="model-stat-label" id="model-stat-most-label">mais importante</span>
                 </div>
             </div>
             <div class="ndvi-info">
@@ -227,38 +227,31 @@
                 </svg>
                 <span><strong>NDVI real</strong> (Copernicus Sentinel-2): quando disponível, substitui a estimativa sazonal, melhorando a precisão da previsão de risco.</span>
             </div>
-            <div class="feature-importance">
-                <h4>Importância das Variáveis</h4>
-                <div class="feature-bar">
-                    <span class="feature-name">NDVI</span>
-                    <div class="bar-container"><div class="bar" style="width:31.9%"></div></div>
-                    <span class="feature-value">32%</span>
-                </div>
-                <div class="feature-bar">
-                    <span class="feature-name">Temp</span>
-                    <div class="bar-container"><div class="bar" style="width:17%"></div></div>
-                    <span class="feature-value">17%</span>
-                </div>
-                <div class="feature-bar">
-                    <span class="feature-name">Mês</span>
-                    <div class="bar-container"><div class="bar" style="width:12.2%"></div></div>
-                    <span class="feature-value">12%</span>
-                </div>
-                <div class="feature-bar">
-                    <span class="feature-name">Lat</span>
-                    <div class="bar-container"><div class="bar" style="width:12.1%"></div></div>
-                    <span class="feature-value">12%</span>
-                </div>
-                <div class="feature-bar">
-                    <span class="feature-name">Lon</span>
-                    <div class="bar-container"><div class="bar" style="width:9.2%"></div></div>
-                    <span class="feature-value">9%</span>
-                </div>
-            </div>
+            <div class="feature-importance" id="model-card-features">
         </div>
     </div>
 </div>
 
+</div>
+
+<!-- ===== GRAFICO HISTORICO 7 DIAS ===== -->
+<div class="chart-section">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+            </div>
+            <h3 data-i18n="history-title">Histórico 7 Dias</h3>
+            <span class="card-subtitle" data-i18n="history-subtitle">Evolucao do risco Portugal</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="history-chart"></canvas>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ===== SIMULACAO INTERATIVA ===== -->
@@ -358,7 +351,7 @@
                     <div class="step-icon">4</div>
                     <div class="step-content">
                         <h4 data-i18n="step4-title">Previsão em Tempo Real</h4>
-                        <p data-i18n="step4-desc">IA prediz risco para 16+ cidades portuguesas com 91.4% de precisão. Compara previsão com NDVI real vs. estimado para mostrar o impacto dos dados de satélite.</p>
+                        <p data-i18n="step4-desc">IA prediz risco para 16+ cidades portuguesas com 91.0% de precisao. Compara previsão com NDVI real vs. estimado para mostrar o impacto dos dados de satélite.</p>
                     </div>
                 </div>
                 <div class="step">
@@ -372,26 +365,6 @@
         </div>
     </div>
 </section>
-
-<!-- ===== GRÁFICO HISTÓRICO ===== -->
-<div class="chart-section">
-    <div class="card">
-        <div class="card-header">
-            <div class="card-icon">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2">
-                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                </svg>
-            </div>
-            <h3 data-i18n="history-title">Histórico 7 Dias</h3>
-            <span class="card-subtitle" data-i18n="history-subtitle">Evolução do risco Portugal</span>
-        </div>
-        <div class="card-body">
-            <div class="chart-container">
-                <canvas id="history-chart"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- ===== CIENCIA DO MODELO (SECCAO CIENTIFICA) ===== -->
 <section class="science-section" id="science-section" style="display:none;">
