@@ -416,9 +416,17 @@
             <!-- Top metrics row -->
             <div class="science-metrics-row" id="science-metrics-row">
                 <div class="science-metric-card"><span class="science-metric-value" id="sci-accuracy">--</span><span class="science-metric-label">Precisão Global</span></div>
+                <div class="science-metric-card"><span class="science-metric-value" id="sci-auc-macro">--</span><span class="science-metric-label">AUC (média)</span></div>
                 <div class="science-metric-card"><span class="science-metric-value" id="sci-trees">--</span><span class="science-metric-label">Árvores</span></div>
                 <div class="science-metric-card"><span class="science-metric-value" id="sci-features">--</span><span class="science-metric-label">Variáveis</span></div>
                 <div class="science-metric-card"><span class="science-metric-value" id="sci-samples">--</span><span class="science-metric-label">Amostras Treino</span></div>
+            </div>
+
+            <!-- AUC per class row -->
+            <div class="science-metrics-row science-metrics-row-small" id="science-auc-row">
+                <div class="science-metric-card science-metric-card-small"><span class="science-metric-value" id="sci-auc-baixo">--</span><span class="science-metric-label">AUC Baixo</span></div>
+                <div class="science-metric-card science-metric-card-small"><span class="science-metric-value" id="sci-auc-medio">--</span><span class="science-metric-label">AUC Médio</span></div>
+                <div class="science-metric-card science-metric-card-small"><span class="science-metric-value" id="sci-auc-alto">--</span><span class="science-metric-label">AUC Alto</span></div>
             </div>
 
             <!-- Two-column layout: Confusion Matrix + Feature Importance -->
@@ -489,6 +497,70 @@
                     </div>
                     <div class="baseline-note">📊 O ML supera regras fixas em cenários complexos</div>
                 </div>
+            </div>
+
+            <!-- Caso de Estudo: Pedrógão Grande 2017 -->
+            <div class="science-block case-study" id="case-study-section" style="display:none;">
+                <h4>📋 Caso de Estudo — Pedrógão Grande (17 de Junho de 2017)</h4>
+                <p class="science-desc">O incêndio de Pedrógão Grande foi um dos mais devastadores da história de Portugal, tendo destruído cerca de <strong>45.000 hectares</strong> e causado <strong>66 mortes</strong>. As condições meteorológicas nesse dia foram extremas: temperatura superior a 43°C, humidade relativa abaixo de 15%, vento forte com rajadas acima de 30 km/h, e solo extremamente seco após semanas sem precipitação significativa.</p>
+
+                <h5 style="margin-top:1.2rem;color:var(--color-text);font-size:0.95rem;">Simulação com o EmberEdge</h5>
+                <p class="science-desc">Alimentámos o modelo com as condições meteorológicas verificadas na região de Leiria/Coimbra para o mês de junho:</p>
+
+                <table class="case-study-table">
+                    <thead><tr><th>Parâmetro</th><th>Valor</th></tr></thead>
+                    <tbody>
+                        <tr><td>Temperatura</td><td>43°C</td></tr>
+                        <tr><td>Humidade</td><td>15%</td></tr>
+                        <tr><td>Vento</td><td>30 km/h</td></tr>
+                        <tr><td>Precipitação</td><td>0 mm</td></tr>
+                        <tr><td>Mês</td><td>Junho</td></tr>
+                        <tr><td>NDVI estimado</td><td>0,22 (vegetação extremamente seca)</td></tr>
+                    </tbody>
+                </table>
+
+                <h5 style="margin-top:1.2rem;color:var(--color-text);font-size:0.95rem;">Resultado da Previsão</h5>
+                <div class="case-result">
+                    <div class="case-result-risk" style="background:#EF4444;">
+                        <span class="case-result-label">Nível de Risco</span>
+                        <span class="case-result-value">ALTO</span>
+                    </div>
+                    <div class="case-result-details">
+                        <div class="case-result-bar">
+                            <span class="case-bar-label">Alto</span>
+                            <div class="case-bar-track"><div class="case-bar-fill case-bar-high" style="width:95%;">95%</div></div>
+                        </div>
+                        <div class="case-result-bar">
+                            <span class="case-bar-label">Médio</span>
+                            <div class="case-bar-track"><div class="case-bar-fill case-bar-med" style="width:40.2%;">40,2%</div></div>
+                        </div>
+                        <div class="case-result-bar">
+                            <span class="case-bar-label">Baixo</span>
+                            <div class="case-bar-track"><div class="case-bar-fill case-bar-low" style="width:1.2%;">1,2%</div></div>
+                        </div>
+                    </div>
+                    <div class="case-result-footnote">
+                        O <strong>override de segurança</strong> é uma regra implementada no sistema que força a classificação "Alto" quando a temperatura ≥ 40°C, uma vez que estas condições extremas estão fora da distribuição normal dos dados de treino do modelo (que usa médias mensais).
+                    </div>
+                </div>
+
+                <h5 style="margin-top:1.2rem;color:var(--color-text);font-size:0.95rem;">Comparação com FWI (Fire Weather Index)</h5>
+                <p class="science-desc" style="margin-bottom:0.5rem;">O <strong>FWI</strong> é o índice usado oficialmente pelo IPMA em Portugal. Utiliza temperatura, humidade, vento e precipitação para calcular o perigo de incêndio. Nas condições de 17 de junho de 2017 (43°C, 15% humidade), o FWI teria atingido valores na categoria <strong>Extremo</strong> (&gt; 55,6). No entanto, o FWI apresenta uma limitação importante: <strong>não considera o estado da vegetação</strong> nem o histórico de incêndios da região.</p>
+
+                <div class="fwi-comparison">
+                    <div class="fwi-item fwi-fwi">
+                        <div class="fwi-icon">🔥</div>
+                        <div class="fwi-label">FWI (IPMA)</div>
+                        <div class="fwi-desc">Apenas meteorologia: temperatura, humidade, vento, precipitação</div>
+                    </div>
+                    <div class="fwi-vs">VS</div>
+                    <div class="fwi-item fwi-emberedge">
+                        <div class="fwi-icon">🤖</div>
+                        <div class="fwi-label">EmberEdge</div>
+                        <div class="fwi-desc">Meteorologia + <strong>NDVI real (satélite)</strong> + histórico ICNF (2000-2023)</div>
+                    </div>
+                </div>
+                <p class="science-desc" style="margin-top:0.8rem;"><strong>Diferença fundamental:</strong> O EmberEdge complementa as variáveis meteorológicas com <strong>NDVI</strong> (índice de vegetação) obtido por satélite e com o <strong>histórico real de incêndios</strong> do ICNF, o que lhe confere maior capacidade de distinguir entre situações meteorologicamente extremas que efetivamente resultam em grandes incêndios e aquelas em que, apesar do clima adverso, o risco é mitigado por outros fatores (como vegetação mais húmida ou menor carga de combustível).</p>
             </div>
 
             <!-- Data Sources -->

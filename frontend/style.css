@@ -1190,7 +1190,7 @@ body.light-mode .lang-btn {
 /* Metrics row */
 .science-metrics-row {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 1rem;
     margin-bottom: 2rem;
 }
@@ -1512,6 +1512,200 @@ body.light-mode .lang-btn {
     font-style: italic;
 }
 
+/* AUC Row */
+.science-metrics-row-small {
+    grid-template-columns: repeat(3, 1fr);
+    margin-top: -1rem;
+    margin-bottom: 1.5rem;
+}
+
+.science-metric-card-small {
+    padding: 0.75rem 0.5rem;
+}
+
+/* Caso de Estudo */
+.case-study {
+    margin-top: 2rem;
+}
+
+.case-study-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-top: 0.8rem;
+}
+
+.case-study-table th,
+.case-study-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border: 1px solid var(--color-border);
+}
+
+.case-study-table th {
+    background: var(--color-bg);
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+.case-study-table td {
+    color: var(--color-text);
+}
+
+.case-study-table tbody tr:hover {
+    background: rgba(255, 107, 53, 0.05);
+}
+
+.case-result {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    margin-top: 0.8rem;
+}
+
+.case-result-risk {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1rem;
+    color: #fff;
+}
+
+.case-result-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.9;
+}
+
+.case-result-value {
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+.case-result-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.case-result-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.case-bar-label {
+    min-width: 50px;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    font-weight: 600;
+}
+
+.case-bar-track {
+    flex: 1;
+    height: 22px;
+    background: var(--color-bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.case-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+    transition: width 0.8s ease;
+    min-width: 30px;
+}
+
+.case-bar-high { background: #EF4444; }
+.case-bar-med { background: #F59E0B; }
+.case-bar-low { background: #10B981; }
+
+.case-result-footnote {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--color-border);
+    font-style: italic;
+}
+
+/* FWI Comparison */
+.fwi-comparison {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    margin-top: 0.8rem;
+}
+
+.fwi-item {
+    flex: 1;
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    text-align: center;
+    border: 1px solid var(--color-border);
+}
+
+.fwi-fwi {
+    background: rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.fwi-emberedge {
+    background: rgba(16, 185, 129, 0.05);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.fwi-vs {
+    display: flex;
+    align-items: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.fwi-icon {
+    font-size: 1.8rem;
+    margin-bottom: 0.3rem;
+}
+
+.fwi-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 0.3rem;
+}
+
+.fwi-desc {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+    .fwi-comparison {
+        flex-direction: column;
+    }
+    .fwi-vs {
+        padding: 4px 0;
+    }
+}
+
 /* Data Sources */
 .science-sources {
     padding: 1rem;
@@ -1564,6 +1758,10 @@ body.light-mode .lang-btn {
     .science-metrics-row {
         grid-template-columns: repeat(2, 1fr);
         gap: 0.75rem;
+    }
+
+    .science-metrics-row-small {
+        grid-template-columns: repeat(3, 1fr);
     }
 
     .science-metric-value {
