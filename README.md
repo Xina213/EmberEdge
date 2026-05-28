@@ -217,7 +217,7 @@ O projeto esta configurado para deploy automatico no **Render.com**:
 ### Dados Historicos
 - **ICNF** - Instituto da Conservacao da Natureza e das Florestas ([fogos.icnf.pt](https://fogos.icnf.pt))
   - Periodo: 2000-2023
-  - **5184 registos de incendios** (100% reais)
+  - **15472 registos de incendios** (100% reais)
 - **ERA5 (ECMWF)** - Reanalise meteorologica
   - Periodo: 2000-2023
   - **5184 registos meteorologicos** (100% reais)
